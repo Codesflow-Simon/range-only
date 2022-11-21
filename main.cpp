@@ -3,17 +3,24 @@
 
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <eigen3/Eigen/Dense>
+#include <gtsam/nonlinear/Values.h>
+#include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
 
 using namespace gtsam;
 using namespace std;
 
 typedef NonlinearFactorGraph Graph;
 
-Emulator getEmulator(); // Function prototype
+Emulator getEmulator(); 
 Emulator emulator;
 Anchor tag;
 
-Symbol
+/**
+ * The following indexing conventions will be used
+ * 0: tag
+ * 1-n: anchors
+ * (n number of anchors)
+*/
 
 Eigen::Matrix<double,10,3> anchorMatrix <<
   1, 0, 0,
@@ -37,10 +44,15 @@ int main() {
   close_log();
 
   Graph graph;
+  Values values;
+
+  graph.addPrior((Key) 0, Vector3(0,0,0), eigen::Matrix33);
+  add_anchors(graph);
+
 }
 
 void add_anchors(Graph graph) {
-  graph.addPrior()
+  graph.addPrior();
 }
 
 
@@ -63,15 +75,20 @@ Emulator getEmulator() {
 
 // Doxygen mainpage
 
-/*! \mainpage template
+/* 
+ * To build and run
+ * \code{.sh}
+ * mkdir build
+ * cd build
+ * cmake ..
+ * make
+ * ./main
+ * \endcode 
+ * 
+ * Generate documentation
+ * \code{.sh}
+ * doxygen docs_conf
+ * \endcode 
  *
- * \section intro_sec Introduction
- *
- * This is the introduction.
- *
- * \section install_sec Installation
- *
- * \subsection step1 Step 1: Opening the box
- *
- * etc...
+ * \subsection
  */

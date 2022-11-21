@@ -6,6 +6,9 @@ find_package(GTSAMCMakeTools)
 find_package(GTSAM REQUIRED)
 find_package(nlohmann_json REQUIRED)
 
+
+message(CMAKE_CXX_COMPILER)
+
 include_directories(BEFORE "${PROJECT_SOURCE_DIR}")
 
 add_library(extralib SHARED emulator.hpp logging.hpp)

@@ -54,11 +54,9 @@ Emulator getEmulator() {
   Emulator emulator = Emulator();
   emulator.setMeasurementError(0.1);
 
-  emulator.setAnchor(Anchor(Vector3(-0.6, 0.9,  2.1), "2e4f"));
-  emulator.setAnchor(Anchor(Vector3( 1.2, 0.1,  0.3), "3bfc"));
-  emulator.setAnchor(Anchor(Vector3(-0.3, 0.3, -1.6), "3a85"));
-  emulator.setAnchor(Anchor(Vector3( 0.7, 2.1, -0.4), "3dd2"));
-  emulator.setAnchor(Anchor(Vector3(-1.8, 1.5,  0.1), "2e01"));
+  for (int i=1; i<n+1; i++)
+    emulator.setAnchor(Anchor(anchorMatrix.row(i-1)), "00"+10));
+
   return emulator;
 }
 

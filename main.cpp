@@ -24,37 +24,6 @@ Emulator emulator;
 Anchor tag;
 #define n 10;
 
-Eigen::Matrix<double,n,3> anchorMatrix <<
-  1, 0, 0,
-  0, 1, 0,
-  0, 0, 1,
- -1, 0, 0,
-  0,-1, 0,
-  0, 0,-1,
- -1, 1, 0,
-  1, 0,-1,
-  0,-1, 1,
-  2,-1, 1;
-
-/**
- * The following indexing conventions will be used
- * 0: tag
- * 1-n: anchors
- * (n number of anchors)
-*/
-
-Eigen::Matrix<double,10,3> anchorMatrix <<
-  1, 0, 0,
-  0, 1, 0,
-  0, 0, 1,
- -1, 0, 0,
-  0,-1, 0,
-  0, 0,-1,
- -1, 1, 0,
-  1, 0,-1,
-  0,-1, 1,
-  2,-1, 1;
-
 /**
  * The following indexing conventions will be used
  * 0: tag
@@ -75,27 +44,18 @@ Eigen::Matrix<double,10,3> anchorMatrix <<
   2,-1, 1;
 
 int main() {
-    emulator = getEmulator();
-    tag = Anchor( Vector3(0.5,0.3,0.2), "0000"); // Set actual tag location
+  emulator = getEmulator();
+  tag = Anchor( Vector3(0.5,0.3,0.2), "0000"); // Set actual tag location
 
-    init_log();
-    write_log(tag.to_string_());
+  init_log();
+  write_log(tag.to_string_());
   close_log();
 
   Graph graph;
   Values values;
 
-  graph.addPrior((Key) 0, Vector3(0,0,0), eigen::Matrix33);
+  graph.addPrior((Key) 0, Vector3(0,0,0), noiseModel:Isotropic(3,10));
   add_anchors(graph);
-
-}
-
-void add_anchors(Graph graph) {
-  graph.addPrior();
-  close_log();
-
-  Graph graph;
-  
 }
 
 void add_anchors(Graph graph) {

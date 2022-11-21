@@ -12,10 +12,9 @@ typedef NonlinearFactorGraph Graph;
 Emulator getEmulator(); // Function prototype
 Emulator emulator;
 Anchor tag;
+#define n 10;
 
-Symbol
-
-Eigen::Matrix<double,10,3> anchorMatrix <<
+Eigen::Matrix<double,n,3> anchorMatrix <<
   1, 0, 0,
   0, 1, 0,
   0, 0, 1,
@@ -37,10 +36,12 @@ int main() {
   close_log();
 
   Graph graph;
+  
 }
 
 void add_anchors(Graph graph) {
-  graph.addPrior()
+  for (int i=1; i<n; i++)
+    graph.addPrior((Key) i, (Vector3) anchorMatrix.row(i-1), noiseModel::Isotropic(3,10));
 }
 
 

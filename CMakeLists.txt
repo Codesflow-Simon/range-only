@@ -1,4 +1,3 @@
-
 cmake_minimum_required(VERSION 1.0)
 project(rangeOnly CXX C)
 set(CXX_STANDARD 11)

@@ -1,13 +1,13 @@
 #include <iostream>
 #include <Eigen/Dense>
 #include <list>
-#include <vector>
+#include <map>
 #include <random>
 
 using namespace std; 
 using namespace Eigen;
 
-typedef Matrix<double,3,1> Vector3;
+typedef Eigen::Matrix<double,3,1> Vector3;
 
 /**
  * @brief Model of anchor or tag object
@@ -56,7 +56,7 @@ class Anchor {
          * @return string
          */
         string to_string_() {
-            return "Anchor(\"" + ID + "\", x=" + to_string(location.x()) + ", y=" + to_string(location.y()) + ", z=" + to_string(location.z()) + ")";
+            return "Anchor(\"" + ID + "\", x=" + to_string(location.x()) + ", y=" + to_string(location.y()) + ", z=" + to_string(location.z()) + ")\n";
         }
 };
 
@@ -72,7 +72,7 @@ class Emulator {
     private:
         list<Anchor> anchors;
         double error;
-        default_random_engine generator;
+        std::default_random_engine gen;
         normal_distribution<double> d{0,1}; 
 
     public:
@@ -82,7 +82,7 @@ class Emulator {
          * @param t 
          */
         void setAnchor(Anchor t) {
-            anchors.push_front(t);    
+            anchors.push_back(t);    
         }
 
         /**
@@ -93,6 +93,15 @@ class Emulator {
         void setMeasurementError(double sigma) {
             error = sigma;
         }
+
+        /**
+         * @brief Get the Num Anchors object
+         * 
+         * @return int 
+         */
+        int getNumAnchors() {
+            return anchors.size();
+        }
         
         /**
          * @brief Samples the system given a tag
@@ -100,14 +109,14 @@ class Emulator {
          * @param tag 
          * @return vector<double> 
          */
-        vector<double> sample(Anchor tag) {
-            vector<double> output = vector<double>(anchors.size());
+        map<string,double> sample(Anchor tag) {
+            // vector<double> output = vector<double>(anchors.size());
+            map<string,double> output;
 
-            int i=0;
             for (Anchor anchor : anchors) {
                 double distance = (tag.location - anchor.location).norm();
-                double noise = error * d(generator);
-                output.at(i++) = distance + noise;
+                double noise = error * d(gen);
+                output[anchor.ID] = distance + noise;
             }
             return output;
         }

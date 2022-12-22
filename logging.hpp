@@ -32,3 +32,12 @@ void close_log() {
 void write_log(string str) {
     debugLog << str;
 }
+
+/**
+ * @brief Writes to log
+ * 
+ * @param vector 
+ */
+void write_log(Vector3 vector) {
+    debugLog <<  "Vector3( "<< vector(0) << ", " << vector(1) << ", " << vector(2) << ")" << endl;
+}

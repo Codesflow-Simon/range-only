@@ -1,68 +1,111 @@
 #include "emulator.hpp"
 #include "logging.hpp"
+#include "factors.hpp"
 
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
-#include <eigen3/Eigen/Dense>
-
-using namespace gtsam;
-using namespace std;
-
-typedef NonlinearFactorGraph Graph;
-
-#include <gtsam/nonlinear/NonlinearFactorGraph.h>
-#include <eigen3/Eigen/Dense>
 #include <gtsam/nonlinear/Values.h>
-#include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
+#include <gtsam/sam/RangeFactor.h>
+#include <gtsam/nonlinear/GaussNewtonOptimizer.h>
+#include <gtsam/geometry/Point3.h>
 
 using namespace gtsam;
 using namespace std;
 
 typedef NonlinearFactorGraph Graph;
 
-Emulator getEmulator(); 
-Emulator emulator;
-Anchor tag;
-#define n 10;
+using symbol_shorthand::X;
+using symbol_shorthand::L;
 
 /**
- * The following indexing conventions will be used
+ * Emulator setup
+ */
+Emulator getEmulator(); 
+void init_anchors();
+
+Emulator emulator;
+Anchor tag;
+int n=6;
+double sampling_error = 0.1;
+map<string,int> index_table;
+
+/**
+ * The following graph indexing conventions will be used
  * 0: tag
  * 1-n: anchors
  * (n number of anchors)
 */
+void add_anchors(Graph* graph, Values* values);
 
-Eigen::Matrix<double,10,3> anchorMatrix <<
-  1, 0, 0,
-  0, 1, 0,
-  0, 0, 1,
- -1, 0, 0,
-  0,-1, 0,
-  0, 0,-1,
- -1, 1, 0,
-  1, 0,-1,
-  0,-1, 1,
-  2,-1, 1;
+Eigen::MatrixXd anchorMatrix;
+
+auto anchorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.001);
+auto tagNoise =  gtsam::noiseModel::Isotropic::Sigma(3,2);
+auto distNoise =  gtsam::noiseModel::Isotropic::Sigma(1,0.10);
 
 int main() {
+  init_anchors();
   emulator = getEmulator();
-  tag = Anchor( Vector3(0.5,0.3,0.2), "0000"); // Set actual tag location
+  tag = Anchor( Vector3(1,0,0), "1000"); // Set actual tag location
 
   init_log();
   write_log(tag.to_string_());
-  close_log();
 
   Graph graph;
   Values values;
+  
+  write_log("adding tag priors\n");
 
-  graph.addPrior((Key) 0, Vector3(0,0,0), noiseModel:Isotropic(3,10));
-  add_anchors(graph);
+  // Priors
+  graph.addPrior(X(0), Vector3(0,0,0), tagNoise);
+  values.insert(X(0), Vector3(0,0,0));
+
+  write_log(values.at<Vector3>(X(0)));
+
+  write_log("adding anchors\n");
+  add_anchors(&graph, &values);
+
+  // Distance
+  map<string,double> sample = emulator.sample(tag);
+
+  for (auto pair : sample) {  // Key-value pair AKA ID-measurment pair
+    int index = index_table[pair.first];
+
+    // auto factor = RangeFactor<Vector3, Vector3> (X(0), L(index), pair.second, distNoise);
+    auto factor = DistanceFactor (X(0), L(index), pair.second, distNoise);
+
+    write_log("Adding DistanceFactor " + to_string(index) + " with measurement " + to_string(pair.second) + "\n");
+    write_log((Vector3)anchorMatrix.row(index));
+    write_log("\n");
+
+    graph.add(factor);
+  }
+
+  graph.print();
+
+  Values optimised = values;
+  optimised = GaussNewtonOptimizer(graph, optimised).optimize();
+  optimised.print();
+
+  cout << "final tag: " << endl << optimised.at<Vector3>(X(0)) << endl;
+
+  close_log();
 }
 
-void add_anchors(Graph graph) {
-  for (int i=1; i<n; i++)
-    graph.addPrior((Key) i, (Vector3) anchorMatrix.row(i-1), noiseModel::Isotropic(3,10));
-}
+/**
+ * @brief Initialises anchors
+ * 
+ */
+void init_anchors() {
+  anchorMatrix = MatrixXd::Zero(n,3);
 
+    anchorMatrix <<
+    0,0,0,
+    1,1,0,
+    1,0,1,
+    2,0,0,
+    1,-1,0,
+    1,0,-1;
+}
 
 /**
  * @brief Get the Emulator with preset parameters
@@ -71,12 +114,26 @@ void add_anchors(Graph graph) {
  */
 Emulator getEmulator() {
   Emulator emulator = Emulator();
-  emulator.setMeasurementError(0.1);
+  emulator.setMeasurementError(sampling_error);
 
-  for (int i=1; i<n+1; i++)
-    emulator.setAnchor(Anchor(anchorMatrix.row(i-1)), "00"+10));
+  for (int i=0; i<n; i++)  {
+    string id = to_string(i);
+
+    if (anchorMatrix.size() < n * 3) throw "anchorMatrix bad size";
+
+    index_table[id] = i;
+    emulator.setAnchor(Anchor(anchorMatrix.row(i), id));
+  }
 
   return emulator;
+}
+
+void add_anchors(Graph* graph, Values* values) {
+  for (int i=0; i<n; i++) {
+    write_log("adding anchor" + to_string(i) + "\n" );
+    graph->addPrior(L(i), (Vector3) anchorMatrix.row(i), anchorNoise);
+    values->insert(L(i), (Vector3) anchorMatrix.row(i));
+  }
 }
 
 // Doxygen mainpage

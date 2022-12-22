@@ -1,6 +1,6 @@
-#include "emulator.hpp"
-#include "logging.hpp"
-#include "factors.hpp"
+#include "emulator.h"
+#include "logging.h"
+#include "factors.h"
 
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/nonlinear/Values.h>

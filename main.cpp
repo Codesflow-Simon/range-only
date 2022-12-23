@@ -7,6 +7,7 @@
 #include <gtsam/sam/RangeFactor.h>
 #include <gtsam/nonlinear/GaussNewtonOptimizer.h>
 #include <gtsam/geometry/Point3.h>
+#include <gtsam/inference/Symbol.h>
 
 using namespace gtsam;
 using namespace std;
@@ -21,6 +22,7 @@ using symbol_shorthand::L;
  */
 Emulator getEmulator(); 
 void init_anchors();
+void add_anchors(Graph* graph, Values* values);
 
 Emulator emulator;
 Anchor tag;
@@ -34,7 +36,6 @@ map<string,int> index_table;
  * 1-n: anchors
  * (n number of anchors)
 */
-void add_anchors(Graph* graph, Values* values);
 
 Eigen::MatrixXd anchorMatrix;
 

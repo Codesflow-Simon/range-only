@@ -35,5 +35,5 @@ class DistanceFactor: public gtsam::NoiseModelFactor2<Vector3, Vector3> {
       return output;
   }
 
-  ~DistanceFactor() {}
+  // virtual ~DistanceFactor() {}
 };

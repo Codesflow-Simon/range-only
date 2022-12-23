@@ -14,7 +14,7 @@ set_target_properties(extralib PROPERTIES LINKER_LANGUAGE CXX)
 
 add_library(factors SHARED factors.h)
 set_target_properties(factors PROPERTIES LINKER_LANGUAGE CXX)
-target_link_libraries(factors PUBLIC gtsam)
+target_link_libraries(factors PUBLIC gtsam gtsam_unstable)
 
 add_executable(main main.cpp)
-target_link_libraries(main PUBLIC gtsam nlohmann_json extralib factors)
+target_link_libraries(main PUBLIC gtsam gtsam_unstable nlohmann_json extralib factors)

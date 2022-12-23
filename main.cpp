@@ -80,11 +80,8 @@ int main() {
     graph.add(factor);
   }
 
-  graph.print();
-
   Values optimised = values;
   optimised = GaussNewtonOptimizer(graph, optimised).optimize();
-  optimised.print();
 
   cout << "final tag: " << endl << optimised.at<Vector3>(X(0)) << endl;
 

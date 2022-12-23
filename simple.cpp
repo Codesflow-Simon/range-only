@@ -1,3 +1,4 @@
+#include <gtsam/geometry/Point3.h>
 #include <gtsam/nonlinear/NonlinearFactor.h>
 
 using namespace std;
@@ -14,7 +15,7 @@ class DistanceFactor: public gtsam::NoiseModelFactor2<Vector3, Vector3> {
   public:
     
   DistanceFactor (Key a, Key b, double meas, SharedNoiseModel model) :
-    NoiseModelFactor2<Vector3, Vector3>(model, a, b), measurement(meas), k(b) {}
+    NoiseModelFactor2<Vector3, Vector3> (model, a, b), measurement(meas), k(b) {}
   
   gtsam::Vector evaluateError(
   const X1& a, const X2& b, 
@@ -35,5 +36,19 @@ class DistanceFactor: public gtsam::NoiseModelFactor2<Vector3, Vector3> {
       return output;
   }
 
-  ~DistanceFactor() {}
+  virtual ~DistanceFactor() {}
 };
+
+int main() {
+
+  Point3 point = Point3();
+  cout << point.x() << endl;
+
+  SharedNoiseModel model(noiseModel::Unit::Create(1));
+
+  Key a(2);
+  Key b(1);
+  double measurement(10.0);
+
+  DistanceFactor fact(a,b,measurement,model);
+}

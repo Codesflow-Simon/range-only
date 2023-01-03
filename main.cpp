@@ -4,6 +4,7 @@
 
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/linear/GaussianFactorGraph.h>
+#include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/nonlinear/Values.h>
 #include <gtsam/sam/RangeFactor.h>
 #include <gtsam/nonlinear/GaussNewtonOptimizer.h>
@@ -25,7 +26,7 @@ Emulator getEmulator();
 void init_anchors();
 void add_anchors(Graph* graph, Values* values);
 void add_priors(Graph* graph, Values* values);
-void add_rangeFactors(Graph* graph, Values* values);
+void add_rangeFactors(Graph* graph, Values* values, Key target);
 
 Emulator emulator;
 Anchor tag;
@@ -43,8 +44,9 @@ map<string,int> index_table;
 Eigen::MatrixXd anchorMatrix;
 
 auto anchorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.1);
-auto tagNoise =  gtsam::noiseModel::Isotropic::Sigma(3,4);
+auto tagPriorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,4);
 auto distNoise =  gtsam::noiseModel::Isotropic::Sigma(1,0.10);
+auto betweenNoise = gtsam::noiseModel::Isotropic::Sigma(3,0.5);
 
 int main() {
   init_anchors();
@@ -52,32 +54,41 @@ int main() {
   tag = Anchor( Vector3(1,-0.5,0.2), "1000"); // Set actual tag location
 
   init_log();
-  write_log(tag.to_string_());
 
   Graph graph;
   Values values;
   
-  add_priors(&graph, &values);
-  add_anchors(&graph, &values);
-  add_rangeFactors(&graph, &values);
-
-  graph.print();
-  values.print();
-
-  Values optimised = values;
-  optimised = GaussNewtonOptimizer(graph, optimised).optimize();
-
-  cout << "final tag: " << endl << optimised.at<Point3>(X(0)) << endl;
-
-  close_log();
-}
-
-void add_priors(Graph* graph, Values* values) {
   write_log("adding tag priors\n");
-  graph->addPrior(X(0), Point3(0,0,0), tagNoise);
-  values->insert(X(0), Point3(0,0,0));
 
-  write_log(values->at<Point3>(X(0)));
+  graph.addPrior(X(0), Point3(0,0,0), tagPriorNoise);
+
+  add_anchors(&graph, &values);
+
+  for (int i=0; i<10; i++) {
+    write_log("loop " + to_string(i) + "\n");
+
+    tag.location += Vector3(0.1,-0.2,0.05);
+    if (i==0) {
+      values.insert(X(0), Point3(0,0,0));
+    }
+    else {
+      values.insert(X(i), values.at<Point3>(X(i-1)));
+      write_log("adding between factor for " + to_string(i-1) + " and " +  to_string(i) + "\n");
+      graph.add(BetweenFactor<Point3>(X(i), X(i-1), Point3(0,0,0), betweenNoise));
+    }
+    write_log("tag: " + tag.to_string_());
+
+
+    // write_log(values->at<Point3>(X(i)));
+
+
+    add_rangeFactors(&graph, &values, X(i));
+
+    values = GaussNewtonOptimizer(graph, values).optimize();
+
+    cout << "final tag: " << endl << values.at<Point3>(X(i)) << endl;
+  }
+  close_log();
 }
 
 void add_anchors(Graph* graph, Values* values) {
@@ -89,16 +100,16 @@ void add_anchors(Graph* graph, Values* values) {
   }
 }
 
-void add_rangeFactors(Graph* graph, Values* values) {
+void add_rangeFactors(Graph* graph, Values* values, Key target) {
   map<string,double> sample = emulator.sample(tag);
 
   for (auto pair : sample) {  // Key-value pair AKA ID-measurment pair
     int index = index_table[pair.first];
 
-    auto factor = RangeFactor<Point3, Point3> (X(0), L(index), pair.second, distNoise);
+    auto factor = RangeFactor<Point3, Point3> (target, L(index), pair.second, distNoise);
     // auto factor = DistanceFactor (X(0), L(index), pair.second, distNoise);
 
-    write_log("Adding DistanceFactor " + to_string(index) + " with measurement " + to_string(pair.second) + "\n");
+    write_log("Adding DistanceFactor " + to_string(index) + " with measurement " + to_string(pair.second) + "\n" + "anchor at ");
     write_log((Point3)anchorMatrix.row(index));
     write_log("\n");
 

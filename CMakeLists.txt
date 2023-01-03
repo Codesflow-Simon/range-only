@@ -5,16 +5,16 @@ set(CXX_STANDARD 11)
 find_package(GTSAM REQUIRED)
 
 find_package(GTSAMCMakeTools)
-find_package(nlohmann_json REQUIRED)
+# find_package(nlohmann_json)
 
 include_directories(BEFORE "${PROJECT_SOURCE_DIR}")
 
-add_library(extralib SHARED emulator.h logging.h)
+add_library(extralib STATIC emulator.h logging.h)
 set_target_properties(extralib PROPERTIES LINKER_LANGUAGE CXX)
 
-add_library(factors SHARED factors.h)
-set_target_properties(factors PROPERTIES LINKER_LANGUAGE CXX)
-target_link_libraries(factors PUBLIC gtsam gtsam_unstable)
+# add_library(factors STATIC factors.h)
+# set_target_properties(factors PROPERTIES LINKER_LANGUAGE CXX)
+# target_link_libraries(factors PUBLIC gtsam gtsam_unstable)
 
 add_executable(main main.cpp)
-target_link_libraries(main PUBLIC gtsam gtsam_unstable nlohmann_json extralib factors)
+target_link_libraries(main PUBLIC gtsam gtsam_unstable extralib)

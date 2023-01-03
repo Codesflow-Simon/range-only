@@ -3,6 +3,7 @@
 #include "factors.h"
 
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
+#include <gtsam/linear/GaussianFactorGraph.h>
 #include <gtsam/nonlinear/Values.h>
 #include <gtsam/sam/RangeFactor.h>
 #include <gtsam/nonlinear/GaussNewtonOptimizer.h>
@@ -23,6 +24,8 @@ using symbol_shorthand::L;
 Emulator getEmulator(); 
 void init_anchors();
 void add_anchors(Graph* graph, Values* values);
+void add_priors(Graph* graph, Values* values);
+void add_rangeFactors(Graph* graph, Values* values);
 
 Emulator emulator;
 Anchor tag;
@@ -39,14 +42,14 @@ map<string,int> index_table;
 
 Eigen::MatrixXd anchorMatrix;
 
-auto anchorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.001);
-auto tagNoise =  gtsam::noiseModel::Isotropic::Sigma(3,2);
+auto anchorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.1);
+auto tagNoise =  gtsam::noiseModel::Isotropic::Sigma(3,4);
 auto distNoise =  gtsam::noiseModel::Isotropic::Sigma(1,0.10);
 
 int main() {
   init_anchors();
   emulator = getEmulator();
-  tag = Anchor( Vector3(1,0,0), "1000"); // Set actual tag location
+  tag = Anchor( Vector3(1,-0.5,0.2), "1000"); // Set actual tag location
 
   init_log();
   write_log(tag.to_string_());
@@ -54,41 +57,55 @@ int main() {
   Graph graph;
   Values values;
   
-  write_log("adding tag priors\n");
-
-  // Priors
-  graph.addPrior(X(0), Vector3(0,0,0), tagNoise);
-  values.insert(X(0), Vector3(0,0,0));
-
-  write_log(values.at<Vector3>(X(0)));
-
-  write_log("adding anchors\n");
+  add_priors(&graph, &values);
   add_anchors(&graph, &values);
+  add_rangeFactors(&graph, &values);
 
-  // Distance
+  graph.print();
+  values.print();
+
+  Values optimised = values;
+  optimised = GaussNewtonOptimizer(graph, optimised).optimize();
+
+  cout << "final tag: " << endl << optimised.at<Point3>(X(0)) << endl;
+
+  close_log();
+}
+
+void add_priors(Graph* graph, Values* values) {
+  write_log("adding tag priors\n");
+  graph->addPrior(X(0), Point3(0,0,0), tagNoise);
+  values->insert(X(0), Point3(0,0,0));
+
+  write_log(values->at<Point3>(X(0)));
+}
+
+void add_anchors(Graph* graph, Values* values) {
+  write_log("adding anchors\n");
+  for (int i=0; i<n; i++) {
+    write_log("adding anchor" + to_string(i) + "\n" );
+    graph->addPrior(L(i), (Point3) anchorMatrix.row(i), anchorNoise);
+    values->insert(L(i), (Point3) anchorMatrix.row(i));
+  }
+}
+
+void add_rangeFactors(Graph* graph, Values* values) {
   map<string,double> sample = emulator.sample(tag);
 
   for (auto pair : sample) {  // Key-value pair AKA ID-measurment pair
     int index = index_table[pair.first];
 
-    // auto factor = RangeFactor<Vector3, Vector3> (X(0), L(index), pair.second, distNoise);
-    auto factor = DistanceFactor (X(0), L(index), pair.second, distNoise);
+    auto factor = RangeFactor<Point3, Point3> (X(0), L(index), pair.second, distNoise);
+    // auto factor = DistanceFactor (X(0), L(index), pair.second, distNoise);
 
     write_log("Adding DistanceFactor " + to_string(index) + " with measurement " + to_string(pair.second) + "\n");
-    write_log((Vector3)anchorMatrix.row(index));
+    write_log((Point3)anchorMatrix.row(index));
     write_log("\n");
 
-    graph.add(factor);
+    graph->add(factor);
   }
 
-  Values optimised = values;
-  optimised = GaussNewtonOptimizer(graph, optimised).optimize();
-
-  cout << "final tag: " << endl << optimised.at<Vector3>(X(0)) << endl;
-
-  close_log();
 }
-
 /**
  * @brief Initialises anchors
  * 
@@ -97,12 +114,13 @@ void init_anchors() {
   anchorMatrix = MatrixXd::Zero(n,3);
 
     anchorMatrix <<
-    0,0,0,
+    0,0,0.1,
     1,1,0,
     1,0,1,
     2,0,0,
     1,-1,0,
     1,0,-1;
+
 }
 
 /**
@@ -126,19 +144,11 @@ Emulator getEmulator() {
   return emulator;
 }
 
-void add_anchors(Graph* graph, Values* values) {
-  for (int i=0; i<n; i++) {
-    write_log("adding anchor" + to_string(i) + "\n" );
-    graph->addPrior(L(i), (Vector3) anchorMatrix.row(i), anchorNoise);
-    values->insert(L(i), (Vector3) anchorMatrix.row(i));
-  }
-}
-
 // Doxygen mainpage
 
 /* 
  * To build and run
- * \code{.sh}
+ * \code{.sh} 
  * mkdir build
  * cd build
  * cmake ..

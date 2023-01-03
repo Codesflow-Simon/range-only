@@ -1,11 +1,12 @@
 #include <gtsam/nonlinear/NonlinearFactor.h>
+#include <gtsam/geometry/Point3.h>
 
 using namespace std;
 using namespace gtsam;
 
-typedef Eigen::Matrix<double,3,1> Vector3;
+// typedef Eigen::Matrix<double,3,1> Vector3;
 
-class DistanceFactor: public gtsam::NoiseModelFactor2<Vector3, Vector3> {
+class DistanceFactor: public gtsam::NoiseModelFactor2<Point3, Point3> {
   private:
 
   double measurement;
@@ -14,7 +15,7 @@ class DistanceFactor: public gtsam::NoiseModelFactor2<Vector3, Vector3> {
   public:
     
   DistanceFactor (Key a, Key b, double meas, SharedNoiseModel model) :
-    NoiseModelFactor2<Vector3, Vector3>(model, a, b), measurement(meas), k(b) {}
+    NoiseModelFactor2<Point3, Point3>(model, a, b), measurement(meas), k(b) {}
   
   gtsam::Vector evaluateError(
   const X1& a, const X2& b, 
@@ -32,7 +33,7 @@ class DistanceFactor: public gtsam::NoiseModelFactor2<Vector3, Vector3> {
 
       gtsam::Vector output(1);
       output(0,0) = distance;
-      return output;
+      return (Point3) output;
   }
 
   // virtual ~DistanceFactor() {}

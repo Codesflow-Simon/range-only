@@ -6,6 +6,7 @@
 using namespace std;
 
 ofstream debugLog;
+int matrix = 0;
 
 /**
  * @brief Opens log
@@ -30,6 +31,24 @@ void close_log() {
  */
 void write_log(string str) {
     debugLog << str;
+}
+
+/**
+ * @brief Writes to log
+ * 
+ * @param str 
+ */
+void write_matrix(MatrixXd mat, string id) {
+    ofstream matrixLog;
+    matrixLog.open(id + ".csv", ofstream::out | ofstream::trunc);
+    for (int i=0; i<mat.rows(); i++) {
+        for (int j=0; j<mat.cols(); j++) {
+            matrixLog << mat(i,j);
+            if (j != mat.cols()-1) matrixLog << ",";
+        }
+        matrixLog << endl;
+    }
+    matrixLog.close();
 }
 
 typedef Eigen::Matrix<double,3,1> Vector3;

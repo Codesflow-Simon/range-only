@@ -84,8 +84,8 @@ int main() {
       values.insert(X(0), Point3(0,0,0));
     }
     else {
-      // values.insert(X(i), current_estimate.at<Point3>(X(i-1)));
-      values.insert(X(i), values.at<Point3>(X(i-1)));
+      values.insert(X(i), current_estimate.at<Point3>(X(i-1)));
+      // values.insert(X(i), values.at<Point3>(X(i-1)));
     }
     write_log("tag: " + tag.to_string_());
 
@@ -99,20 +99,25 @@ int main() {
       graph.add(BetweenFactor<Point3>(X(i), X(i-1), Point3(0,0,0), betweenNoise));
 
     write_log("Optimising\n");
-    // ISAM2Result result = isam.update(graph, values);
+    ISAM2Result result = isam.update(graph, values);
+    result = isam.update();
+    result = isam.update();
+    result = isam.update();
+    result = isam.update();
 
     // result.print();
 
-    // current_estimate = isam.calculateEstimate();
-    values = GaussNewtonOptimizer(graph, values).optimize();
-    // values = GaussNewtonOptimizer(isam.getFactorsUnsafe(), current_estimate).optimize();
+    current_estimate = isam.calculateEstimate();
+    // values = GaussNewtonOptimizer(graph, values).optimize();
 
-    // values.clear();
-    // graph.resize(0);
+    values.clear();
+    graph.resize(0);
 
-    // cout << "final tag: " << endl << current_estimate.at<Point3>(X(i)) << endl;
-      cout << "final tag: " << endl << values.at<Point3>(X(i)) << endl;
+    cout << "final tag: " << endl << current_estimate.at<Point3>(X(i)) << endl;
+    // cout << "final tag: " << endl << values.at<Point3>(X(i)) << endl;
     cout << "tag: " << endl << tag.location << endl;
+    cout << "error " << (tag.location - current_estimate.at<Point3>(X(i))).norm() << endl << endl;
+
 
   }
   close_log();

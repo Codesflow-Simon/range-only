@@ -6,34 +6,31 @@ using namespace gtsam;
 
 // typedef Eigen::Matrix<double,3,1> Vector3;
 
-class DistanceFactor: public gtsam::NoiseModelFactor2<Point3, Point3> {
+class DistanceFactor: public gtsam::NoiseModelFactorN<Point3, Point3> {
   private:
 
   double measurement;
-  Key k;
 
   public:
     
   DistanceFactor (Key a, Key b, double meas, SharedNoiseModel model) :
-    NoiseModelFactor2<Point3, Point3>(model, a, b), measurement(meas), k(b) {}
+    NoiseModelFactorN<Point3, Point3>(model, a, b), measurement(meas) {}
   
   gtsam::Vector evaluateError(
-  const X1& a, const X2& b, 
+  const Point3& x, const Point3& y, 
   boost::optional<Eigen::MatrixXd&> H1 = boost::none,  
   boost::optional<Eigen::MatrixXd&> H2 = boost::none) 
   const {  
       double distance;
-      distance = (double)(a - b).norm() + 0.0001;
+      distance = (double)(x - y).norm() + 0.0001;
 
       if (H1)
-        *H1 = ((a-b)/distance).transpose();
+        *H1 = ((x-y)/distance).transpose();
 
       if (H2)
-        *H2 = ((b-a)/distance).transpose();
+        *H2 = ((y-x)/distance).transpose();
 
-      gtsam::Vector output(1);
-      output(0,0) = distance;
-      return (Point3) output;
+      return Vector1(output);
   }
 
   // virtual ~DistanceFactor() {}

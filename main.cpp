@@ -49,11 +49,14 @@ auto distNoise =  gtsam::noiseModel::Isotropic::Sigma(1,0.10);
 auto betweenNoise = gtsam::noiseModel::Isotropic::Sigma(3,0.5);
 
 int main() {
+  /***
+  * Setup
+  ***/
+  init_log();
+
   init_anchors();
   emulator = getEmulator();
   tag = Anchor( Vector3(1,-0.5,0.2), "1000"); // Set actual tag location
-
-  init_log();
 
   Graph graph;
   Values values;
@@ -64,8 +67,15 @@ int main() {
 
   add_anchors(&graph, &values);
 
-  for (int i=0; i<10; i++) {
+  /***
+  * Sampling loop
+  ***/
+  for (int i=0; i<1; i++) {
     write_log("loop " + to_string(i) + "\n");
+
+    /***
+     * Update tag location
+    ***/
 
     tag.location += Vector3(0.1,-0.2,0.05);
     if (i==0) {
@@ -73,18 +83,23 @@ int main() {
     }
     else {
       values.insert(X(i), values.at<Point3>(X(i-1)));
-      write_log("adding between factor for " + to_string(i-1) + " and " +  to_string(i) + "\n");
-      graph.add(BetweenFactor<Point3>(X(i), X(i-1), Point3(0,0,0), betweenNoise));
     }
     write_log("tag: " + tag.to_string_());
 
+    /***
+     * Add factors
+    ***/
 
-    // write_log(values->at<Point3>(X(i)));
-
-
+    write_log("adding factors\n");
     add_rangeFactors(&graph, &values, X(i));
+    if (i!=0)     
+      graph.add(BetweenFactor<Point3>(X(i), X(i-1), Point3(0,0,0), betweenNoise));
 
+    write_log("Optimising\n");
     values = GaussNewtonOptimizer(graph, values).optimize();
+
+    // auto linear = graph.linearize(values);
+    // write_matrix(linear->jacobian().first, "jacobian_custom_after");
 
     cout << "final tag: " << endl << values.at<Point3>(X(i)) << endl;
   }
@@ -111,11 +126,10 @@ void add_rangeFactors(Graph* graph, Values* values, Key target) {
 
     write_log("Adding DistanceFactor " + to_string(index) + " with measurement " + to_string(pair.second) + "\n" + "anchor at ");
     write_log((Point3)anchorMatrix.row(index));
-    write_log("\n");
 
     graph->add(factor);
+    write_log("Sucessfully added\n\n");
   }
-
 }
 /**
  * @brief Initialises anchors
@@ -146,7 +160,7 @@ Emulator getEmulator() {
   for (int i=0; i<n; i++)  {
     string id = to_string(i);
 
-    if (anchorMatrix.size() < n * 3) throw "anchorMatrix bad size";
+    // if (anchorMatrix.size() < n * 3)BetweenFactor throw "anchorMatrix bad size";
 
     index_table[id] = i;
     emulator.setAnchor(Anchor(anchorMatrix.row(i), id));

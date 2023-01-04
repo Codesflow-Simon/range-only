@@ -21,6 +21,7 @@ void init_log() {
  * 
  */
 void close_log() {
+    debugLog << "Closing\n";
     debugLog.close();
 }
 

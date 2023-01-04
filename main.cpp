@@ -11,6 +11,7 @@
 #include <gtsam/nonlinear/GaussNewtonOptimizer.h>
 #include <gtsam/geometry/Point3.h>
 #include <gtsam/inference/Symbol.h>
+#include <gtsam/nonlinear/Marginals.h>
 
 using namespace gtsam;
 using namespace std;
@@ -31,7 +32,7 @@ void add_rangeFactors(Graph* graph, Values* values, Key target);
 
 Emulator emulator;
 Anchor tag;
-int n=20;
+int n=6;
 double sampling_error = 0.1;
 map<string,int> index_table;
 
@@ -108,7 +109,7 @@ int main() {
     result.print();
 
     current_estimate = isam.calculateEstimate();
-    // values = GaussNewtonOptimizer(graph, values).optimize();
+    cout << isam.marginalCovariance(X(i)) << endl;
 
     values.clear();
     graph.resize(0);

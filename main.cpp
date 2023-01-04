@@ -31,7 +31,7 @@ void add_rangeFactors(Graph* graph, Values* values, Key target);
 
 Emulator emulator;
 Anchor tag;
-int n=6;
+int n=20;
 double sampling_error = 0.1;
 map<string,int> index_table;
 
@@ -47,7 +47,7 @@ Eigen::MatrixXd anchorMatrix;
 auto anchorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.1);
 auto tagPriorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,4);
 auto distNoise =  gtsam::noiseModel::Isotropic::Sigma(1,0.10);
-auto betweenNoise = gtsam::noiseModel::Isotropic::Sigma(3,0.5);
+auto betweenNoise = gtsam::noiseModel::Isotropic::Sigma(3,0.1);
 
 int main() {
   /***
@@ -57,7 +57,7 @@ int main() {
 
   init_anchors();
   emulator = getEmulator();
-  tag = Anchor( standard_normal_vector3()*4, "1000"); // Set actual tag location
+  tag = Anchor( standard_normal_vector3()*1, "1000"); // Set actual tag location
 
   ISAM2 isam;
   Graph graph;
@@ -79,7 +79,7 @@ int main() {
      * Update tag location
     ***/
 
-    tag.location += standard_normal_vector3()*0.5;
+    tag.location += standard_normal_vector3()*0.1;
     if (i==0) {
       values.insert(X(0), Point3(0,0,0));
     }
@@ -105,7 +105,7 @@ int main() {
     result = isam.update();
     result = isam.update();
 
-    // result.print();
+    result.print();
 
     current_estimate = isam.calculateEstimate();
     // values = GaussNewtonOptimizer(graph, values).optimize();

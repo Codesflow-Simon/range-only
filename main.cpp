@@ -2,6 +2,7 @@
 #include "logging.h"
 #include "factors.h"
 
+#include <gtsam/nonlinear/ISAM2.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/linear/GaussianFactorGraph.h>
 #include <gtsam/slam/BetweenFactor.h>
@@ -58,8 +59,9 @@ int main() {
   emulator = getEmulator();
   tag = Anchor( Vector3(1,-0.5,0.2), "1000"); // Set actual tag location
 
+  ISAM2 isam;
   Graph graph;
-  Values values;
+  Values values, current_estimate;
   
   write_log("adding tag priors\n");
 
@@ -70,7 +72,7 @@ int main() {
   /***
   * Sampling loop
   ***/
-  for (int i=0; i<1; i++) {
+  for (int i=0; i<100; i++) {
     write_log("loop " + to_string(i) + "\n");
 
     /***
@@ -82,7 +84,7 @@ int main() {
       values.insert(X(0), Point3(0,0,0));
     }
     else {
-      values.insert(X(i), values.at<Point3>(X(i-1)));
+      values.insert(X(i), current_estimate.at<Point3>(X(i-1)));
     }
     write_log("tag: " + tag.to_string_());
 
@@ -96,12 +98,20 @@ int main() {
       graph.add(BetweenFactor<Point3>(X(i), X(i-1), Point3(0,0,0), betweenNoise));
 
     write_log("Optimising\n");
-    values = GaussNewtonOptimizer(graph, values).optimize();
+    ISAM2Result result = isam.update(graph, values);
 
-    // auto linear = graph.linearize(values);
-    // write_matrix(linear->jacobian().first, "jacobian_custom_after");
+    result.print();
 
-    cout << "final tag: " << endl << values.at<Point3>(X(i)) << endl;
+    current_estimate = isam.calculateEstimate();
+    // values = GaussNewtonOptimizer(graph, values).optimize();
+    // values = GaussNewtonOptimizer(isam.getFactorsUnsafe(), current_estimate).optimize();
+
+    values.clear();
+    graph.resize(0);
+
+    cout << "final tag: " << endl << current_estimate.at<Point3>(X(i)) << endl;
+    cout << "tag: " << endl << tag.location << endl;
+
   }
   close_log();
 }

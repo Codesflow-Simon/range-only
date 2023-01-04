@@ -57,7 +57,7 @@ int main() {
 
   init_anchors();
   emulator = getEmulator();
-  tag = Anchor( Vector3(1,-0.5,0.2), "1000"); // Set actual tag location
+  tag = Anchor( standard_normal_vector3()*4, "1000"); // Set actual tag location
 
   ISAM2 isam;
   Graph graph;
@@ -79,12 +79,13 @@ int main() {
      * Update tag location
     ***/
 
-    tag.location += Vector3(0.1,-0.2,0.05);
+    tag.location += standard_normal_vector3()*0.5;
     if (i==0) {
       values.insert(X(0), Point3(0,0,0));
     }
     else {
-      values.insert(X(i), current_estimate.at<Point3>(X(i-1)));
+      // values.insert(X(i), current_estimate.at<Point3>(X(i-1)));
+      values.insert(X(i), values.at<Point3>(X(i-1)));
     }
     write_log("tag: " + tag.to_string_());
 
@@ -98,18 +99,19 @@ int main() {
       graph.add(BetweenFactor<Point3>(X(i), X(i-1), Point3(0,0,0), betweenNoise));
 
     write_log("Optimising\n");
-    ISAM2Result result = isam.update(graph, values);
+    // ISAM2Result result = isam.update(graph, values);
 
-    result.print();
+    // result.print();
 
-    current_estimate = isam.calculateEstimate();
-    // values = GaussNewtonOptimizer(graph, values).optimize();
+    // current_estimate = isam.calculateEstimate();
+    values = GaussNewtonOptimizer(graph, values).optimize();
     // values = GaussNewtonOptimizer(isam.getFactorsUnsafe(), current_estimate).optimize();
 
-    values.clear();
-    graph.resize(0);
+    // values.clear();
+    // graph.resize(0);
 
-    cout << "final tag: " << endl << current_estimate.at<Point3>(X(i)) << endl;
+    // cout << "final tag: " << endl << current_estimate.at<Point3>(X(i)) << endl;
+      cout << "final tag: " << endl << values.at<Point3>(X(i)) << endl;
     cout << "tag: " << endl << tag.location << endl;
 
   }
@@ -147,14 +149,9 @@ void add_rangeFactors(Graph* graph, Values* values, Key target) {
  */
 void init_anchors() {
   anchorMatrix = MatrixXd::Zero(n,3);
-
-    anchorMatrix <<
-    0,0,0.1,
-    1,1,0,
-    1,0,1,
-    2,0,0,
-    1,-1,0,
-    1,0,-1;
+  for (int i=0; i<n; i++) {
+    anchorMatrix.row(i) = standard_normal_vector3() * 3;
+  }
 
 }
 

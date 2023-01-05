@@ -73,14 +73,16 @@ int main() {
   /***
   * Sampling loop
   ***/
-  for (int i=0; i<100; i++) {
+  for (int i=0; i<1; i++) {
     write_log("loop " + to_string(i) + "\n");
 
     /***
      * Update tag location
     ***/
 
-    tag.location += standard_normal_vector3()*0.1;
+    // tag.location += standard_normal_vector3()*0.1;
+    tag.location += Vector3(1.99746, -1.38509, 9.70009)*0.001;
+
     if (i==0) {
       values.insert(X(0), Point3(0,0,0));
     }
@@ -100,13 +102,9 @@ int main() {
       graph.add(BetweenFactor<Point3>(X(i), X(i-1), Point3(0,0,0), betweenNoise));
 
     write_log("Optimising\n");
+    
     ISAM2Result result = isam.update(graph, values);
-    result = isam.update();
-    result = isam.update();
-    result = isam.update();
-    result = isam.update();
-
-    result.print();
+    // values = GaussNewtonOptimizer(graph, values).optimize();
 
     current_estimate = isam.calculateEstimate();
     cout << isam.marginalCovariance(X(i)) << endl;
@@ -139,8 +137,7 @@ void add_rangeFactors(Graph* graph, Values* values, Key target) {
   for (auto pair : sample) {  // Key-value pair AKA ID-measurment pair
     int index = index_table[pair.first];
 
-    auto factor = RangeFactor<Point3, Point3> (target, L(index), pair.second, distNoise);
-    // auto factor = DistanceFactor (X(0), L(index), pair.second, distNoise);
+    auto factor = DistanceFactor (target, L(index), pair.second, distNoise);
 
     write_log("Adding DistanceFactor " + to_string(index) + " with measurement " + to_string(pair.second) + "\n" + "anchor at ");
     write_log((Point3)anchorMatrix.row(index));
@@ -158,7 +155,6 @@ void init_anchors() {
   for (int i=0; i<n; i++) {
     anchorMatrix.row(i) = standard_normal_vector3() * 3;
   }
-
 }
 
 /**

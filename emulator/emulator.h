@@ -3,6 +3,7 @@
 #include <list>
 #include <map>
 #include <random>
+#include <random_tools.h>
 
 using namespace std; 
 using namespace Eigen;
@@ -62,18 +63,6 @@ class Anchor {
 
 ostream& operator<<(std::ostream &strm, const Anchor &a) {
   return strm << "Anchor(\"" << a.ID << "\", x=" << a.location.x() << ", y=" << a.location.y() << ", z=" << a.location.z() << ")";
-}
-
-std::default_random_engine gen;
-normal_distribution<double> d{0,1}; 
-double standard_normal_generator() {
-  return d(gen);
-}
-
-Vector3 standard_normal_vector3() {
-  Vector3 vec;
-  for (int i=0;i<3;i++) vec(i) = standard_normal_generator();
-  return vec;
 }
 
 /**

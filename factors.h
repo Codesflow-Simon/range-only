@@ -30,7 +30,7 @@ class DistanceFactor: public gtsam::NoiseModelFactorN<Point3, Point3> {
       if (H2)
         *H2 = ((y-x)/distance).transpose();
 
-      return Vector1(distance);
+      return Vector1(distance - measurement);
   }
 
   // virtual ~DistanceFactor() {}

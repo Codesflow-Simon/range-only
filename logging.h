@@ -13,7 +13,7 @@ int matrix = 0;
  * 
  */
 void init_log() {
-    debugLog.open("log", ofstream::out | ofstream::trunc);
+    debugLog.open("log.txt", ofstream::out | ofstream::trunc);
 }
 
 /**

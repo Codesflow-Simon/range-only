@@ -80,8 +80,7 @@ int main() {
      * Update tag location
     ***/
 
-    // tag.location += standard_normal_vector3()*0.1;
-    tag.location += Vector3(1.99746, -1.38509, 9.70009)*0.001;
+    tag.location += standard_normal_vector3()*0.1;
 
     if (i==0) {
       values.insert(X(0), Point3(0,0,0));
@@ -106,6 +105,9 @@ int main() {
     // ISAM2Result result = isam.update(graph, values);
     values = GaussNewtonOptimizer(graph, values).optimize();
 
+    Marginals errors = Marginals(graph, values);
+    errors.print();
+
     // current_estimate = isam.calculateEstimate();
     // cout << isam.marginalCovariance(X(i)) << endl;
 
@@ -115,6 +117,7 @@ int main() {
     // cout << "final tag: " << endl << current_estimate.at<Point3>(X(i)) << endl;
     cout << "final tag: " << endl << values.at<Point3>(X(i)) << endl;
     cout << "tag: " << endl << tag.location << endl;
+    cout << "marginal covariance of final position:" << endl << errors.marginalCovariance(X(i)) << endl;  
     cout << "error " << (tag.location - values.at<Point3>(X(i))).norm() << endl << endl;
 
 

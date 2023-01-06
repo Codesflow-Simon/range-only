@@ -18,11 +18,12 @@ using namespace gtsam;
 typedef PinholeCamera<Cal3_S2> Camera;
 
 class CameraEmulator {
-  private:
+  public:
     Camera camera;
 
-  public:
-    CameraEmualtor(Camera camera_) {
+    CameraEmulator() = default;
+
+    CameraEmulator(Camera camera_) {
       camera = camera_;
     }
 

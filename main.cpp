@@ -14,6 +14,7 @@
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/nonlinear/Marginals.h>
 #include <gtsam/slam/ProjectionFactor.h>
+#include <gtsam/geometry/Cal3_S2.h>
 
 using namespace gtsam;
 using namespace std;
@@ -23,19 +24,21 @@ typedef PinholeCamera<Cal3_S2> Camera;
 
 using symbol_shorthand::X;
 using symbol_shorthand::L;
+using symbol_shorthand::C;
 
 /**
  * Emulator setup
  */
 SensorEmulator getSensor(); 
+CameraEmulator getCamera();
 void init_anchors();
 void add_anchors(Graph* graph, Values* values);
 void add_priors(Graph* graph, Values* values);
 void add_rangeFactors(Graph* graph);
 
 SensorEmulator sensor;
-CameraEmualtor cameraEmulator;
-Camera camera;
+CameraEmulator camera;
+
 Anchor tag;
 int n=6;
 double sampling_error = 0.1;
@@ -54,14 +57,15 @@ auto anchorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.1);
 auto tagPriorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,4);
 auto distNoise =  gtsam::noiseModel::Isotropic::Sigma(1,0.10);
 auto betweenNoise = gtsam::noiseModel::Isotropic::Sigma(3,0.1);
+auto projNoise = gtsam::noiseModel::Isotropic::Sigma(2,1);
 
 int main() {
   init_log();
   init_anchors();
 
   tag = Anchor( standard_normal_vector3()*1, "1000"); // Set actual tag location
-  sensor = getSensor();
 
+  sensor = getSensor();
   camera = getCamera();
 
   ISAM2 isam;
@@ -71,7 +75,7 @@ int main() {
   write_log("adding tag priors\n");
   graph.addPrior(X(0), Point3(0,0,0), tagPriorNoise);
 
-  add_anchors(&graph, &values);
+  add_priors(&graph, &values);
 
   /***
   * Sampling loop
@@ -82,10 +86,7 @@ int main() {
     write_log("loop " + to_string(i) + "\n");
     tag.location += standard_normal_vector3()*0.1;
 
-    if (i==0) {
-      values.insert(X(0), Point3(0,0,0));
-    }
-    else {
+    if (i!=0){
       values.insert(X(i), current_estimate.at<Point3>(X(i-1)));
     }
     write_log("tag: " + tag.to_string_());
@@ -123,7 +124,7 @@ int main() {
  * @param Graph* graph to write too
  * @param Values* values to write too
 */
-void add_anchors(Graph* graph, Values* values) {
+void add_priors(Graph* graph, Values* values) {
   write_log("adding anchors\n");
   for (int i=0; i<n; i++) {
     write_log("adding anchor" + to_string(i) + "\n" );
@@ -131,6 +132,9 @@ void add_anchors(Graph* graph, Values* values) {
     graph->addPrior(L(i), (Point3) (anchorMatrix.row(i).transpose() + standard_normal_vector3()*0.1), anchorNoise);
     values->insert(L(i), (Point3) (anchorMatrix.row(i).transpose() + standard_normal_vector3()*0.1));
   }
+
+  values->insert(X(0), Point3(0,0,0));
+  values->insert(C(0), camera.camera.pose());
 }
 
 /**
@@ -138,7 +142,7 @@ void add_anchors(Graph* graph, Values* values) {
  * @param Graph* graph graph to write too
 */
 void add_rangeFactors(Graph* graph) {
-  map<pair<Anchor,Anchor>,double> sample = emulator.sample(tag);
+  map<pair<Anchor,Anchor>,double> sample = sensor.sample(tag);
   // map<pair<Anchor,Anchor>,double> A2asample = emulator.sampleA2a();
   // sample.merge(A2asample);
   
@@ -164,10 +168,12 @@ void add_rangeFactors(Graph* graph) {
   }
 }
 
+// Will camera get confused about which one the tag is?
 void CameraFactors(Graph* graph, Values* values) {
-
+  Point2 measurement = camera.samplePixel(tag.location);
+  Key tagKey = keyTable[tag.ID];
+  auto factor = GenericProjectionFactor<Pose3, Point3, Cal3_S2>(measurement, projNoise, C(0), tagKey, &camera.camera.calibration());
 }
-
 
 
 /**

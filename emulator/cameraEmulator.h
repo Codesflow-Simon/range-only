@@ -3,6 +3,7 @@
 #include <gtsam/geometry/Rot3.h>
 #include <gtsam/geometry/Point2.h>
 #include <gtsam/geometry/Point3.h>
+#include <gtsam/geometry/PinholeCamera.h>
 #include <gtsam/geometry/Pose3.h>
 #include <math.h>
 #include <list>
@@ -12,6 +13,8 @@
 
 using namespace std;
 using namespace gtsam;
+
+typedef PinholeCamera<Cal3_S2> Camera;
 
 class PolarCoordinate {
   public:
@@ -64,13 +67,18 @@ ostream& operator<<(std::ostream &strm, const PolarCoordinate &a) {
   return strm << "PolarCoordinate( radius = " << a.radius << ", azimuth = " << a.azimuth << ", altitude = " << a.altitude <<  ")";
 }
 
-class Camera {
+class CameraEmulator {
   private:
-    Pose3 pose;
-    double lens_width = M_PI/6;
-    double lens_height = M_PI/8;
+    Camera camera;
+    double lens_width = M_PI/3;
+    double lens_height = M_PI/4;
+    double error = 0.01; // about 1cm of errer every meter away
 
   public:
+    CameraEmualtor(Camera camera_) {
+      camera = camera_;
+    }
+
     Point2 pointToPixel(Point3 point) {
       PolarCoordinate polar(point);
       double x = 2 * polar.azimuth / lens_width + 0.5;
@@ -85,5 +93,23 @@ class Camera {
       polar.azimuth = (point.x() - 0.5)*lens_width/2;
       polar.altitude = (point.y() - 0.5)*lens_height/2;
       return polar.toPoint();
+    }
+
+    Point3 sampleUnitOld(Point3 tag) {
+      Point2 pixel = pointToPixel(tag);
+      Point3 unit = pixelToUnit(pixel); // This is just the normalised tag
+      Point3 noise = standard_normal_vector3() * error;
+      unit += noise;
+      unit.normalize();
+      return unit;
+    }
+
+    Point3 sampleUnit(Point3 tag) {
+      Point2 pixel = camera.project2(tag);
+      Point3 unit = pixelToUnit(pixel); // This is just the normalised tag
+      Point3 noise = standard_normal_vector3() * error;
+      unit += noise;
+      unit.normalize();
+      return unit;
     }
 };

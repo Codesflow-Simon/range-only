@@ -74,10 +74,10 @@ ostream& operator<<(std::ostream &strm, const Anchor &a) {
  * @brief Emulates a tag-anchor environment
  * 
  */
-class Emulator {
+class SensorEmulator {
   private:
     list<Anchor> anchors;
-    double error;
+    double error = 0.1;
     std::default_random_engine gen;
     normal_distribution<double> d{0,1}; 
 

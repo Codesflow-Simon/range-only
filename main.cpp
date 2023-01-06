@@ -13,11 +13,13 @@
 #include <gtsam/geometry/Point3.h>
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/nonlinear/Marginals.h>
+#include <gtsam/slam/ProjectionFactor.h>
 
 using namespace gtsam;
 using namespace std;
 
 typedef NonlinearFactorGraph Graph;
+typedef PinholeCamera<Cal3_S2> Camera;
 
 using symbol_shorthand::X;
 using symbol_shorthand::L;
@@ -25,13 +27,15 @@ using symbol_shorthand::L;
 /**
  * Emulator setup
  */
-Emulator getEmulator(); 
+SensorEmulator getSensor(); 
 void init_anchors();
 void add_anchors(Graph* graph, Values* values);
 void add_priors(Graph* graph, Values* values);
 void add_rangeFactors(Graph* graph);
 
-Emulator emulator;
+SensorEmulator sensor;
+CameraEmualtor cameraEmulator;
+Camera camera;
 Anchor tag;
 int n=6;
 double sampling_error = 0.1;
@@ -56,7 +60,9 @@ int main() {
   init_anchors();
 
   tag = Anchor( standard_normal_vector3()*1, "1000"); // Set actual tag location
-  emulator = getEmulator();
+  sensor = getSensor();
+
+  camera = getCamera();
 
   ISAM2 isam;
   Graph graph;
@@ -156,10 +162,14 @@ void add_rangeFactors(Graph* graph) {
     graph->add(factor);
     write_log("Sucessfully added\n\n");
   }
-  /***
-   * A2a measurments
-  */
 }
+
+void CameraFactors(Graph* graph, Values* values) {
+
+}
+
+
+
 /**
  * @brief Initialises anchors
  * 
@@ -176,9 +186,8 @@ void init_anchors() {
  * 
  * @return Emulator 
  */
-Emulator getEmulator() {
-  Emulator emulator = Emulator();
-  emulator.setMeasurementError(sampling_error);
+SensorEmulator getSensor() {
+  SensorEmulator sensor();
 
   assert(tag.ID != "");
 
@@ -187,13 +196,29 @@ Emulator getEmulator() {
   for (int i=0; i<n; i++)  {
     string id = to_string(i);
 
-    // if (anchorMatrix.size() < n * 3)BetweenFactor throw "anchorMatrix bad size";
-
     keyTable[id] = L(i);
     emulator.setAnchor(Anchor(anchorMatrix.row(i), id));
   }
 
   return emulator;
+}
+
+/**
+ * @brief Get the Emulator with preset parameters
+ * 
+ * @return Emulator 
+ */
+CameraEmulator getCamera() {
+  // Camera emulator
+  // GTSAM camera
+  Cal3_S2 cameraParams(120, 480, 360); // FOV (deg), width, height
+  Camera camera(CameraEmulator.pose, cameraParams);
+
+
+  CameraEmulator cameraEmulator(camera);
+  Point3 position = standard_normal_vector3()*3;
+  camera.pose = Pose3(Rot3(-position, 0), position); // Using axis-angle rotation contructor, will always face origin
+  return camera;
 }
 
 // Doxygen mainpage

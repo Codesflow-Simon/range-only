@@ -1,4 +1,5 @@
-#include "emulator.h"
+#include "sensorEmulator.h"
+#include "cameraEmulator.h"
 #include "logging.h"
 #include "factors.h"
 
@@ -28,13 +29,13 @@ Emulator getEmulator();
 void init_anchors();
 void add_anchors(Graph* graph, Values* values);
 void add_priors(Graph* graph, Values* values);
-void add_rangeFactors(Graph* graph, Values* values, Key target);
+void add_rangeFactors(Graph* graph);
 
 Emulator emulator;
 Anchor tag;
 int n=6;
 double sampling_error = 0.1;
-map<string,int> index_table;
+map<string,Key> keyTable;
 
 /**
  * The following graph indexing conventions will be used
@@ -51,21 +52,17 @@ auto distNoise =  gtsam::noiseModel::Isotropic::Sigma(1,0.10);
 auto betweenNoise = gtsam::noiseModel::Isotropic::Sigma(3,0.1);
 
 int main() {
-  /***
-  * Setup
-  ***/
   init_log();
-
   init_anchors();
-  emulator = getEmulator();
+
   tag = Anchor( standard_normal_vector3()*1, "1000"); // Set actual tag location
+  emulator = getEmulator();
 
   ISAM2 isam;
   Graph graph;
   Values values, current_estimate;
   
   write_log("adding tag priors\n");
-
   graph.addPrior(X(0), Point3(0,0,0), tagPriorNoise);
 
   add_anchors(&graph, &values);
@@ -73,81 +70,95 @@ int main() {
   /***
   * Sampling loop
   ***/
-  for (int i=0; i<1; i++) {
+  for (int i=0; i<3; i++) {
+    keyTable[tag.ID] = X(i);
+
     write_log("loop " + to_string(i) + "\n");
-
-    /***
-     * Update tag location
-    ***/
-
     tag.location += standard_normal_vector3()*0.1;
 
     if (i==0) {
       values.insert(X(0), Point3(0,0,0));
     }
     else {
-      // values.insert(X(i), current_estimate.at<Point3>(X(i-1)));
-      values.insert(X(i), values.at<Point3>(X(i-1)));
+      values.insert(X(i), current_estimate.at<Point3>(X(i-1)));
     }
     write_log("tag: " + tag.to_string_());
 
-    /***
-     * Add factors
-    ***/
-
     write_log("adding factors\n");
-    add_rangeFactors(&graph, &values, X(i));
+    add_rangeFactors(&graph);
     if (i!=0)     
       graph.add(BetweenFactor<Point3>(X(i), X(i-1), Point3(0,0,0), betweenNoise));
 
     write_log("Optimising\n");
     
-    // ISAM2Result result = isam.update(graph, values);
-    values = GaussNewtonOptimizer(graph, values).optimize();
+    ISAM2Result result = isam.update(graph, values);
+    result = isam.update();
+    result = isam.update();
+    result = isam.update();
+    result = isam.update();
+    result = isam.update();
+    result = isam.update();
 
-    Marginals errors = Marginals(graph, values);
-    errors.print();
+    current_estimate = isam.calculateEstimate();
 
-    // current_estimate = isam.calculateEstimate();
-    // cout << isam.marginalCovariance(X(i)) << endl;
+    values.clear();
+    graph.resize(0);
 
-    // values.clear();
-    // graph.resize(0);
-
-    // cout << "final tag: " << endl << current_estimate.at<Point3>(X(i)) << endl;
-    cout << "final tag: " << endl << values.at<Point3>(X(i)) << endl;
+    cout << "final tag: " << endl << current_estimate.at<Point3>(X(i)) << endl;
     cout << "tag: " << endl << tag.location << endl;
-    cout << "marginal covariance of final position:" << endl << errors.marginalCovariance(X(i)) << endl;  
-    cout << "error " << (tag.location - values.at<Point3>(X(i))).norm() << endl << endl;
-
-
+    cout << "marginal covariance of final position:" << endl << isam.marginalCovariance(X(i)) << endl;  
+    cout << "error " << (tag.location - current_estimate.at<Point3>(X(i))).norm() << endl << endl;
   }
   close_log();
 }
 
+/**
+ * @brief Adds anchor priors to graph and value structure
+ * @param Graph* graph to write too
+ * @param Values* values to write too
+*/
 void add_anchors(Graph* graph, Values* values) {
   write_log("adding anchors\n");
   for (int i=0; i<n; i++) {
     write_log("adding anchor" + to_string(i) + "\n" );
-    graph->addPrior(L(i), (Point3) anchorMatrix.row(i), anchorNoise);
-    values->insert(L(i), (Point3) anchorMatrix.row(i));
+    
+    graph->addPrior(L(i), (Point3) (anchorMatrix.row(i).transpose() + standard_normal_vector3()*0.1), anchorNoise);
+    values->insert(L(i), (Point3) (anchorMatrix.row(i).transpose() + standard_normal_vector3()*0.1));
   }
 }
 
-void add_rangeFactors(Graph* graph, Values* values, Key target) {
-  map<string,double> sample = emulator.sample(tag);
-
+/**
+ * @brief Adds range factors between sensors to the provided graph
+ * @param Graph* graph graph to write too
+*/
+void add_rangeFactors(Graph* graph) {
+  map<pair<Anchor,Anchor>,double> sample = emulator.sample(tag);
+  // map<pair<Anchor,Anchor>,double> A2asample = emulator.sampleA2a();
+  // sample.merge(A2asample);
+  
+  /***
+   * Tag measurments
+  */
   for (auto pair : sample) {  // Key-value pair AKA ID-measurment pair
-    int index = index_table[pair.first];
+    std::pair<Anchor,Anchor> anchorPair = pair.first;
 
-    auto factor = DistanceFactor (target, L(index), pair.second, distNoise);
+    Key keyA = keyTable[anchorPair.first.ID];
+    Key keyB = keyTable[anchorPair.second.ID];
 
-    write_log("Adding DistanceFactor " + to_string(index) + " with measurement " + to_string(pair.second) + "\n" + "anchor at ");
-    write_log((Point3)anchorMatrix.row(index));
+    assert(keyA != 0 && keyB != 0);
+
+    auto factor = DistanceFactor (keyA, keyB, pair.second, distNoise);
+
+    write_log("Adding DistanceFactor " + to_string(keyA) + " and " + to_string(keyB) + " with measurement " + to_string(pair.second) + "\n Anchor at ");
+    write_log(anchorPair.second.location);
+    write_log("\n");
 
     graph->add(factor);
     write_log("Sucessfully added\n\n");
   }
+  /***
+   * A2a measurments
+  */
 }
 /**
  * @brief Initialises anchors
@@ -169,12 +180,16 @@ Emulator getEmulator() {
   Emulator emulator = Emulator();
   emulator.setMeasurementError(sampling_error);
 
+  assert(tag.ID != "");
+
+  keyTable[tag.ID] = X(0);
+
   for (int i=0; i<n; i++)  {
     string id = to_string(i);
 
     // if (anchorMatrix.size() < n * 3)BetweenFactor throw "anchorMatrix bad size";
 
-    index_table[id] = i;
+    keyTable[id] = L(i);
     emulator.setAnchor(Anchor(anchorMatrix.row(i), id));
   }
 

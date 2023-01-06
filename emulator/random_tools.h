@@ -2,6 +2,8 @@
 #include <iostream>
 #include <Eigen/Dense>
 
+#pragma once
+
 using namespace std;
 
 std::default_random_engine gen;

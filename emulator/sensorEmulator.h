@@ -40,15 +40,19 @@ class Anchor {
     }
 
     /**
-     * @brief Tests anchor equality
+     * @brief TEST_CASEs anchor equality
      * 
      * @param other 
      * @return true 
      * @return false 
      */
-    bool equals(const Anchor& other) const {
+    bool operator ==(const Anchor& other) const {
       const string otherID = other.ID;
       return otherID == ID;
+    }
+
+    bool operator <(const Anchor& other) const {
+      return stoi(ID) < stoi(other.ID);
     }
 
     /**
@@ -64,6 +68,7 @@ class Anchor {
 ostream& operator<<(std::ostream &strm, const Anchor &a) {
   return strm << "Anchor(\"" << a.ID << "\", x=" << a.location.x() << ", y=" << a.location.y() << ", z=" << a.location.z() << ")";
 }
+
 
 /**
  * @brief Emulates a tag-anchor environment
@@ -110,14 +115,41 @@ class Emulator {
      * @param tag 
      * @return vector<double> 
      */
-    map<string,double> sample(Anchor tag) {
-      // vector<double> output = vector<double>(anchors.size());
-      map<string,double> output;
+    map<pair<Anchor,Anchor>,double> sample(Anchor tag) {
+      map< pair<Anchor,Anchor> , double > output;
 
       for (Anchor anchor : anchors) {
+        pair<Anchor,Anchor> anchorTagPair(tag, anchor);
+
         double distance = (tag.location - anchor.location).norm();
         double noise = error * standard_normal_generator();
-        output[anchor.ID] = distance + noise;
+        output[anchorTagPair] = distance + noise;
+      }
+      return output;
+    }
+
+  
+
+    /**
+     * @brief Samples the system given a tag
+     * 
+     * @param tag 
+     * @return vector<double> 
+     */
+    map<pair<Anchor,Anchor>,double> sampleA2a() {
+      map<pair<Anchor,Anchor>,double> output;
+      
+      for (auto it = anchors.begin(); it != anchors.end(); ++it) {
+          for (auto itr = list<Anchor>::iterator(it); itr != anchors.end(); ++itr) {
+            Anchor anchorA = *it;
+            Anchor anchorB = *itr;
+
+            pair<Anchor,Anchor> anchorTagPair(anchorA, anchorB);
+
+            double distance = (anchorA.location - anchorB.location).norm();
+            double noise = error * standard_normal_generator();
+            output[anchorTagPair] = distance + noise;
+        }
       }
       return output;
     }

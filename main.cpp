@@ -209,15 +209,13 @@ SensorEmulator getSensor() {
  * @return Emulator 
  */
 CameraEmulator getCamera() {
-  // Camera emulator
-  // GTSAM camera
-  Cal3_S2 cameraParams(120, 480, 360); // FOV (deg), width, height
-  Camera camera(CameraEmulator.pose, cameraParams);
+  Point3 position = standard_normal_vector3()*3;
+  Pose3 pose = Pose3(Rot3(-position, 0), position); // Using axis-angle rotation contructor, will always face origin
 
+  Cal3_S2 cameraParams(120, 480, 360); // FOV (deg), width, height
+  Camera camera(pose, cameraParams);
 
   CameraEmulator cameraEmulator(camera);
-  Point3 position = standard_normal_vector3()*3;
-  camera.pose = Pose3(Rot3(-position, 0), position); // Using axis-angle rotation contructor, will always face origin
   return camera;
 }
 

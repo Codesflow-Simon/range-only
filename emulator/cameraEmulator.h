@@ -11,23 +11,37 @@
 #include <map>
 #include <random>
 #include <random_tools.h>
+#include "wrappers.h"
 
 using namespace std;
 using namespace gtsam;
 
 typedef PinholeCamera<Cal3_S2> Camera;
 
-class CameraEmulator {
+class CameraEmulator : public CameraWrapper {
+  private:
+    Camera* camera;
+    Cal3_S2::shared_ptr params;
+    Pose3 pose;
   public:
-    Camera camera;
 
-    CameraEmulator() = default;
+    CameraEmulator() {
+      Point3 position = standard_normal_vector3()*3;
+      pose = Pose3(Rot3::AxisAngle((Point3)-position, 0.0), position); // will always face origin
 
-    CameraEmulator(Camera camera_) {
+      params = Cal3_S2::shared_ptr(new Cal3_S2(60, 640, 480)); // FOV (deg), width, height
+      Camera* camera = new Camera(pose, *params);
+    };
+
+    CameraEmulator(Camera* camera_) {
       camera = camera_;
     }
 
-    Point2 samplePixel(Point3 tag) {
-      return camera.project2(tag);
+    Point2 sample(Point3 tag) {
+      return camera->project(tag);
+    }
+
+    ~CameraEmulator() {
+      delete camera;
     }
 };

@@ -1,5 +1,6 @@
-#include "sensorEmulator.h"
-#include "cameraEmulator.h"
+#include "sensorEmulator.h" 
+#include "cameraEmulator.h" 
+#include "wrappers.h"
 #include "logging.h"
 #include "factors.h"
 
@@ -26,19 +27,6 @@ using symbol_shorthand::X;
 using symbol_shorthand::L;
 using symbol_shorthand::C;
 
-/**
- * Emulator setup
- */
-SensorEmulator getSensor(); 
-CameraEmulator getCamera();
-void init_anchors();
-void add_anchors(Graph* graph, Values* values);
-void add_priors(Graph* graph, Values* values);
-void add_rangeFactors(Graph* graph);
-
-SensorEmulator sensor;
-CameraEmulator camera;
-
 Anchor tag;
 int n=6;
 double sampling_error = 0.1;
@@ -55,76 +43,16 @@ Eigen::MatrixXd anchorMatrix;
 
 auto anchorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.1);
 auto tagPriorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,4);
-auto distNoise =  gtsam::noiseModel::Isotropic::Sigma(1,0.10);
+auto distNoise =  gtsam::noiseModel::Isotropic::Sigma(1,0.1);
 auto betweenNoise = gtsam::noiseModel::Isotropic::Sigma(3,0.1);
 auto projNoise = gtsam::noiseModel::Isotropic::Sigma(2,1);
-
-int main() {
-  init_log();
-  init_anchors();
-
-  tag = Anchor( standard_normal_vector3()*1, "1000"); // Set actual tag location
-
-  sensor = getSensor();
-  camera = getCamera();
-
-  ISAM2 isam;
-  Graph graph;
-  Values values, current_estimate;
-  
-  write_log("adding tag priors\n");
-  graph.addPrior(X(0), Point3(0,0,0), tagPriorNoise);
-
-  add_priors(&graph, &values);
-
-  /***
-  * Sampling loop
-  ***/
-  for (int i=0; i<3; i++) {
-    keyTable[tag.ID] = X(i);
-
-    write_log("loop " + to_string(i) + "\n");
-    tag.location += standard_normal_vector3()*0.1;
-
-    if (i!=0){
-      values.insert(X(i), current_estimate.at<Point3>(X(i-1)));
-    }
-    write_log("tag: " + tag.to_string_());
-
-    write_log("adding factors\n");
-    add_rangeFactors(&graph);
-    if (i!=0)     
-      graph.add(BetweenFactor<Point3>(X(i), X(i-1), Point3(0,0,0), betweenNoise));
-
-    write_log("Optimising\n");
-    
-    ISAM2Result result = isam.update(graph, values);
-    result = isam.update();
-    result = isam.update();
-    result = isam.update();
-    result = isam.update();
-    result = isam.update();
-    result = isam.update();
-
-    current_estimate = isam.calculateEstimate();
-
-    values.clear();
-    graph.resize(0);
-
-    cout << "final tag: " << endl << current_estimate.at<Point3>(X(i)) << endl;
-    cout << "tag: " << endl << tag.location << endl;
-    cout << "marginal covariance of final position:" << endl << isam.marginalCovariance(X(i)) << endl;  
-    cout << "error " << (tag.location - current_estimate.at<Point3>(X(i))).norm() << endl << endl;
-  }
-  close_log();
-}
-
+auto cameraNoise = gtsam::noiseModel::Isotropic::Sigma(6,1);
 /**
  * @brief Adds anchor priors to graph and value structure
  * @param Graph* graph to write too
  * @param Values* values to write too
 */
-void add_priors(Graph* graph, Values* values) {
+void add_priors(Graph* graph, Values* values, CameraWrapper* camera) {
   write_log("adding anchors\n");
   for (int i=0; i<n; i++) {
     write_log("adding anchor" + to_string(i) + "\n" );
@@ -134,15 +62,17 @@ void add_priors(Graph* graph, Values* values) {
   }
 
   values->insert(X(0), Point3(0,0,0));
-  values->insert(C(0), camera.camera.pose());
+  graph->addPrior(C(0), camera->getCamera()->pose(), cameraNoise);
+  values->insert(C(0), camera->getCamera()->pose());
 }
 
 /**
  * @brief Adds range factors between sensors to the provided graph
  * @param Graph* graph graph to write too
+ * @param Sensor* sensor that makes measurements to write too
 */
-void add_rangeFactors(Graph* graph) {
-  map<pair<Anchor,Anchor>,double> sample = sensor.sample(tag);
+void add_rangeFactors(Graph* graph, Sensor* sensor) {
+  map<pair<Anchor,Anchor>,double> sample = sensor->sample(tag);
   // map<pair<Anchor,Anchor>,double> A2asample = emulator.sampleA2a();
   // sample.merge(A2asample);
   
@@ -166,25 +96,33 @@ void add_rangeFactors(Graph* graph) {
     graph->add(factor);
     write_log("Sucessfully added\n\n");
   }
+
 }
 
-// Will camera get confused about which one the tag is?
-void CameraFactors(Graph* graph, Values* values) {
-  Point2 measurement = camera.samplePixel(tag.location);
+/**
+ * @brief Adds projection factors between the tag and camera to the provided graph
+ * @param Graph* graph graph to write too
+ * @param camera* camera that makes measurements to write too
+ * @param Cal3_S2::shared_ptr camera calibration
+*/
+void add_cameraFactors(Graph* graph, Values* values, CameraWrapper* camera, Cal3_S2::shared_ptr params) {
+  Point2 measurement = camera->sample(tag.location);
   Key tagKey = keyTable[tag.ID];
-  auto factor = GenericProjectionFactor<Pose3, Point3, Cal3_S2>(measurement, projNoise, C(0), tagKey, &camera.camera.calibration());
+  auto factor = GenericProjectionFactor<Pose3, Point3, Cal3_S2>(measurement, projNoise, C(0), tagKey, params);
+  graph->add(factor);
 }
 
 
 /**
  * @brief Initialises anchors
- * 
+ * @return Eigen::MatrixXd matrix of the anchors positions
  */
-void init_anchors() {
-  anchorMatrix = MatrixXd::Zero(n,3);
+Eigen::MatrixXd init_anchors() {
+  Eigen::MatrixXd anchors = MatrixXd::Zero(n,3);
   for (int i=0; i<n; i++) {
-    anchorMatrix.row(i) = standard_normal_vector3() * 3;
+    anchors.row(i) = standard_normal_vector3() * 3;
   }
+  return anchors;
 }
 
 /**
@@ -192,8 +130,8 @@ void init_anchors() {
  * 
  * @return Emulator 
  */
-SensorEmulator getSensor() {
-  SensorEmulator sensor();
+Sensor* getSensor() {
+  SensorEmulator* sensor = new SensorEmulator();
 
   assert(tag.ID != "");
 
@@ -203,10 +141,10 @@ SensorEmulator getSensor() {
     string id = to_string(i);
 
     keyTable[id] = L(i);
-    emulator.setAnchor(Anchor(anchorMatrix.row(i), id));
+    sensor->setAnchor(Anchor(anchorMatrix.row(i), id));
   }
 
-  return emulator;
+  return sensor;
 }
 
 /**
@@ -214,15 +152,76 @@ SensorEmulator getSensor() {
  * 
  * @return Emulator 
  */
-CameraEmulator getCamera() {
-  Point3 position = standard_normal_vector3()*3;
-  Pose3 pose = Pose3(Rot3(-position, 0), position); // Using axis-angle rotation contructor, will always face origin
+CameraWrapper* getCamera(Cal3_S2::shared_ptr calib) {
+  Point3 position = Point3(-10,0,0);
+  Pose3 pose = Pose3(Rot3::AxisAngle((Point3)-position, 0.0), position); // will always face origin
 
-  Cal3_S2 cameraParams(120, 480, 360); // FOV (deg), width, height
-  Camera camera(pose, cameraParams);
+  Camera* camera = new Camera(pose, *calib);
+  return new CameraEmulator(camera);
+}
 
-  CameraEmulator cameraEmulator(camera);
-  return camera;
+int main() {
+  init_log();
+  init_anchors();
+
+  tag = Anchor( standard_normal_vector3()*1, "1000"); // Set actual tag location
+
+  Sensor* sensor = getSensor();
+
+  Cal3_S2::shared_ptr params(new Cal3_S2(60, 6400, 4800)); // FOV (deg), width, height
+  CameraWrapper* camera = getCamera(params);
+
+  ISAM2 isam;
+  Graph graph;
+  Values values, current_estimate;
+  
+  write_log("adding tag priors\n");
+  graph.addPrior(X(0), Point3(0,0,0), tagPriorNoise);
+
+  add_priors(&graph, &values, camera);
+
+  /***
+  * Sampling loop
+  ***/
+  for (int i=0; i<3; i++) {
+    keyTable[tag.ID] = X(i);
+
+    write_log("loop " + to_string(i) + "\n");
+    tag.location += standard_normal_vector3()*0.1;
+
+    if (i!=0){
+      values.insert(X(i), values.at<Point3>(X(i-1)));
+    }
+    write_log("tag: " + tag.to_string_());
+
+    write_log("adding factors\n");
+    add_rangeFactors(&graph, sensor);
+    add_cameraFactors(&graph, &values, camera, params);
+    if (i!=0)     
+      graph.add(BetweenFactor<Point3>(X(i), X(i-1), Point3(0,0,0), betweenNoise));
+
+    write_log("Optimising\n");
+    
+    values = current_estimate = GaussNewtonOptimizer(graph, values).optimize();
+
+    // ISAM2Result result = isam.update(graph, values);
+    // result = isam.update();
+    // result = isam.update();
+
+    // current_estimate = isam.calculateEstimate();
+
+    // values.clear();
+    // graph.resize(0);
+
+    cout << "final tag: " << endl << current_estimate.at<Point3>(X(i)) << endl;
+    cout << "tag: " << endl << tag.location << endl;
+    cout << "marginal covariance of final position:" << endl << Marginals(graph, values).marginalCovariance(X(i)) << endl;  
+    // cout << "marginal covariance of final position:" << endl << isam.marginalCovariance(X(i)) << endl;  
+    cout << "error " << (tag.location - current_estimate.at<Point3>(X(i))).norm() << endl << endl;
+  }
+  close_log();
+  delete sensor;
+  delete camera;
 }
 
 // Doxygen mainpage

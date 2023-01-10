@@ -15,7 +15,14 @@
 using namespace std;
 using namespace gtsam;
 
-typedef PinholeCamera<Cal3_S2> Camera;Camera* 
+typedef PinholeCamera<Cal3_S2> Camera;
+
+/**
+ * @brief a generic template for both the camera emulator and physical camera
+*/
+// class CameraWrapper {
+//   protected:
+//     Camera* camera;
 //     Cal3_S2::shared_ptr params;
 
 //   public:

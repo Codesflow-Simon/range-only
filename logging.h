@@ -2,6 +2,7 @@
 #include <fstream>
 #include <string>
 #include <Eigen/Dense>
+#include "gtsam/inference/Symbol.h"
 
 using namespace std;
 
@@ -13,7 +14,7 @@ int matrix = 0;
  * 
  */
 void init_log() {
-    debugLog.open("log.txt", ofstream::out | ofstream::trunc);
+  debugLog.open("log.txt", ofstream::out | ofstream::trunc);
 }
 
 /**
@@ -21,8 +22,8 @@ void init_log() {
  * 
  */
 void close_log() {
-    debugLog << "Closing\n";
-    debugLog.close();
+  debugLog << "Closing\n";
+  debugLog.close();
 }
 
 /**
@@ -40,16 +41,16 @@ void write_log(string str) {
  * @param str 
  */
 void write_matrix(MatrixXd mat, string id) {
-    ofstream matrixLog;
-    matrixLog.open(id + ".csv", ofstream::out | ofstream::trunc);
-    for (int i=0; i<mat.rows(); i++) {
-        for (int j=0; j<mat.cols(); j++) {
-            matrixLog << mat(i,j);
-            if (j != mat.cols()-1) matrixLog << ",";
-        }
-        matrixLog << endl;
+  ofstream matrixLog;
+  matrixLog.open(id + ".csv", ofstream::out | ofstream::trunc);
+  for (int i=0; i<mat.rows(); i++) {
+    for (int j=0; j<mat.cols(); j++) {
+      matrixLog << mat(i,j);
+      if (j != mat.cols()-1) matrixLog << ",";
     }
-    matrixLog.close();
+    matrixLog << endl;
+  }
+  matrixLog.close();
 }
 
 typedef Eigen::Matrix<double,3,1> Vector3;
@@ -60,5 +61,11 @@ typedef Eigen::Matrix<double,3,1> Vector3;
  * @param vector 
  */
 void write_log(Vector3 vector) {
-    debugLog <<  "Vector3( "<< vector(0) << ", " << vector(1) << ", " << vector(2) << ")" << endl;
+  debugLog <<  "Vector3( "<< vector(0) << ", " << vector(1) << ", " << vector(2) << ")" << endl;
+}
+ /**
+  * Returns key as a human-readable string
+ */
+string keyToString(Symbol key) {
+  return string(1,key.chr()) + to_string(key.index());
 }

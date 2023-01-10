@@ -2,7 +2,6 @@
 #include "cameraEmulator.h" 
 #include "logging.h"
 #include "factors.h"
-#include "optimizer.h"
 
 #include <gtsam/nonlinear/ISAM2.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
@@ -29,7 +28,6 @@ using symbol_shorthand::C;
 
 Anchor tag;
 int n=6;
-double sampling_error = 0.1;
 map<string,Key> keyTable;
 
 /**
@@ -45,13 +43,14 @@ auto distNoise =  gtsam::noiseModel::Isotropic::Sigma(1,0.1);
 auto betweenNoise = gtsam::noiseModel::Isotropic::Sigma(3,0.1);
 auto projNoise = gtsam::noiseModel::Isotropic::Sigma(2,1);
 auto cameraNoise = gtsam::noiseModel::Isotropic::Sigma(6,1);
+
 /**
  * @brief Adds anchor priors to graph and value structure
  * @param Graph* graph to write too
  * @param Values* values to write too
 */
 void add_priors(Graph* graph, Values* values, CameraWrapper* camera, Eigen::MatrixXd anchors) {
-  write_log("adding anchors\n");
+  write_log("adding priors\n");
   for (int i=0; i<n; i++) {
     write_log("adding anchor" + to_string(i) + "\n" );
     
@@ -87,7 +86,7 @@ void add_rangeFactors(Graph* graph, Sensor* sensor) {
 
     auto factor = DistanceFactor (keyA, keyB, pair.second, distNoise);
 
-    write_log("Adding DistanceFactor " + to_string(keyA) + " and " + to_string(keyB) + " with measurement " + to_string(pair.second) + "\n Anchor at ");
+    write_log("Adding DistanceFactor " + keyToString(keyA) + " and " + keyToString(keyB) + " with measurement " + to_string(pair.second) + "\n Anchor at ");
     write_log(anchorPair.second.location);
     write_log("\n");
 
@@ -104,7 +103,9 @@ void add_rangeFactors(Graph* graph, Sensor* sensor) {
  * @param Cal3_S2::shared_ptr camera calibration
 */
 void add_cameraFactors(Graph* graph, Values* values, CameraWrapper* camera) {
+  write_log("adding projection factors between " + keyToString(C(0)) + " and " + keyToString(X(0)) + "\n");
   Point2 measurement = camera->sample(tag.location);
+  write_log("Measured: (" + to_string(measurement.x()) + ", " + to_string(measurement.y()) + ")\n\n");
   Key tagKey = keyTable[tag.ID];
   auto factor = GenericProjectionFactor<Pose3, Point3, Cal3_S2>(measurement, projNoise, C(0), tagKey, camera->getParams());
   graph->add(factor);
@@ -159,14 +160,14 @@ int main() {
   init_log();
   Eigen::MatrixXd anchorMatrix = init_anchors();
 
+  Vector3 velocity = standard_normal_vector3() * 0.3; 
+
   tag = Anchor( standard_normal_vector3()*1, "1000"); // Set actual tag location
 
   Sensor* sensor = getSensor(anchorMatrix);
 
   CameraWrapper* camera = getCamera();
 
-  init_optimizer();
-  ISAM2 isam;
   Graph graph;
   Values values, current_estimate;
   
@@ -178,11 +179,11 @@ int main() {
   /***
   * Sampling loop
   ***/
-  for (int i=0; i<3; i++) {
+  for (int i=0; i<1000; i++) {
     keyTable[tag.ID] = X(i);
 
     write_log("loop " + to_string(i) + "\n");
-    tag.location += standard_normal_vector3()*0.1;
+    tag.location += standard_normal_vector3()*0.1 + velocity;
 
     if (i!=0){
       values.insert(X(i), values.at<Point3>(X(i-1)));
@@ -193,26 +194,19 @@ int main() {
     add_rangeFactors(&graph, sensor);
     add_cameraFactors(&graph, &values, camera);
     if (i!=0)     
-      graph.add(BetweenFactor<Point3>(X(i), X(i-1), Point3(0,0,0), betweenNoise));
+      graph.add(BetweenFactor<Point3>(X(i), X(i-1), velocity, betweenNoise));
 
     write_log("Optimising\n");
     
-    values = current_estimate = GaussNewtonOptimizer(graph, values).optimize();
+    values = GaussNewtonOptimizer(graph, values).optimize();
 
-    // ISAM2Result result = isam.update(graph, values);
-    // result = isam.update();
-    // result = isam.update();
+    write_matrix(graph.linearize(values)->jacobian().first, "jacobian");
 
-    // current_estimate = isam.calculateEstimate();
 
-    // values.clear();
-    // graph.resize(0);
-
-    cout << "final tag: " << endl << current_estimate.at<Point3>(X(i)) << endl;
+    cout << "final tag: " << endl << values.at<Point3>(X(i)) << endl;
     cout << "tag: " << endl << tag.location << endl;
     cout << "marginal covariance of final position:" << endl << Marginals(graph, values).marginalCovariance(X(i)) << endl;  
-    // cout << "marginal covariance of final position:" << endl << isam.marginalCovariance(X(i)) << endl;  
-    cout << "error " << (tag.location - current_estimate.at<Point3>(X(i))).norm() << endl << endl;
+    cout << "error " << (tag.location - values.at<Point3>(X(i))).norm() << endl << endl;
   }
   close_log();
   delete sensor;

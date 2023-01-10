@@ -15,28 +15,22 @@
 using namespace std;
 using namespace gtsam;
 
-typedef PinholeCamera<Cal3_S2> Camera;
+typedef PinholeCamera<Cal3_S2> Camera;Camera* 
+//     Cal3_S2::shared_ptr params;
 
-/**
- * @brief a generic template for both the camera emulator and physical camera
-*/
-class CameraWrapper {
+//   public:
+
+//     virtual Camera* getCamera() {return camera;}
+//     virtual Cal3_S2::shared_ptr  getParams() {return params;}
+
+//     virtual Point2 sample(Point3 tag);
+//     virtual ~CameraWrapper();
+// };
+
+class CameraEmulator {
   protected:
     Camera* camera;
     Cal3_S2::shared_ptr params;
-
-  public:
-
-    virtual Camera* getCamera() {return camera;}
-    virtual Cal3_S2::shared_ptr  getParams() {return params;}
-
-    virtual Point2 sample(Point3 tag);
-    virtual ~CameraWrapper();
-};
-
-class CameraEmulator : public CameraWrapper {
-  private:
-    Pose3 pose;
 
   public:
     /**
@@ -56,10 +50,10 @@ class CameraEmulator : public CameraWrapper {
     */
     CameraEmulator() {
       Point3 position = Point3(-10,0,0);
-      pose = Pose3(Rot3::AxisAngle((Point3)-position, 0.0), position); // will always face origin
+      Pose3 pose = Pose3(Rot3::AxisAngle((Point3)-position, 0.0), position); // will always face origin
 
       params = Cal3_S2::shared_ptr(new Cal3_S2(60, 6400, 4800)); // FOV (deg), width, height
-      Camera* camera = new Camera(pose, *params);
+      camera = new Camera(pose, *params);
     };
 
     /**
@@ -67,17 +61,18 @@ class CameraEmulator : public CameraWrapper {
     */
     CameraEmulator(Camera* camera_) {
       camera = camera_;
-      pose = camera_->pose();
     }
 
     /**
      * @brief Samples the projection of the tag onto the camera 
     */
     Point2 sample(Point3 tag) {
-      return camera->project(tag);
+      return camera->Project(tag);
     }
 
     virtual ~CameraEmulator() {
       delete camera;
     }
 };
+
+typedef CameraEmulator CameraWrapper;

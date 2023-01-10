@@ -2,6 +2,7 @@
 #include "cameraEmulator.h" 
 #include "logging.h"
 #include "factors.h"
+#include "optimizer.h"
 
 #include <gtsam/nonlinear/ISAM2.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
@@ -38,8 +39,6 @@ map<string,Key> keyTable;
  * (n number of anchors)
 */
 
-Eigen::MatrixXd anchorMatrix;
-
 auto anchorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.1);
 auto tagPriorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,4);
 auto distNoise =  gtsam::noiseModel::Isotropic::Sigma(1,0.1);
@@ -51,13 +50,13 @@ auto cameraNoise = gtsam::noiseModel::Isotropic::Sigma(6,1);
  * @param Graph* graph to write too
  * @param Values* values to write too
 */
-void add_priors(Graph* graph, Values* values, CameraWrapper* camera) {
+void add_priors(Graph* graph, Values* values, CameraWrapper* camera, Eigen::MatrixXd anchors) {
   write_log("adding anchors\n");
   for (int i=0; i<n; i++) {
     write_log("adding anchor" + to_string(i) + "\n" );
     
-    graph->addPrior(L(i), (Point3) (anchorMatrix.row(i).transpose() + standard_normal_vector3()*0.1), anchorNoise);
-    values->insert(L(i), (Point3) (anchorMatrix.row(i).transpose() + standard_normal_vector3()*0.1));
+    graph->addPrior(L(i), (Point3) (anchors.row(i).transpose() + standard_normal_vector3()*0.1), anchorNoise);
+    values->insert(L(i), (Point3) (anchors.row(i).transpose() + standard_normal_vector3()*0.1));
   }
 
   values->insert(X(0), Point3(0,0,0));
@@ -129,10 +128,11 @@ Eigen::MatrixXd init_anchors() {
  * 
  * @return Emulator 
  */
-Sensor* getSensor() {
+Sensor* getSensor(Eigen::MatrixXd anchors) {
   SensorEmulator* sensor = new SensorEmulator();
 
   assert(tag.ID != "");
+  assert(anchors.size()>0);
 
   keyTable[tag.ID] = X(0);
 
@@ -140,7 +140,7 @@ Sensor* getSensor() {
     string id = to_string(i);
 
     keyTable[id] = L(i);
-    sensor->setAnchor(Anchor(anchorMatrix.row(i), id));
+    sensor->setAnchor(Anchor(anchors.row(i), id));
   }
 
   return sensor;
@@ -157,14 +157,15 @@ CameraWrapper* getCamera() {
 
 int main() {
   init_log();
-  init_anchors();
+  Eigen::MatrixXd anchorMatrix = init_anchors();
 
   tag = Anchor( standard_normal_vector3()*1, "1000"); // Set actual tag location
 
-  Sensor* sensor = getSensor();
+  Sensor* sensor = getSensor(anchorMatrix);
 
   CameraWrapper* camera = getCamera();
 
+  init_optimizer();
   ISAM2 isam;
   Graph graph;
   Values values, current_estimate;
@@ -172,7 +173,7 @@ int main() {
   write_log("adding tag priors\n");
   graph.addPrior(X(0), Point3(0,0,0), tagPriorNoise);
 
-  add_priors(&graph, &values, camera);
+  add_priors(&graph, &values, camera, anchorMatrix);
 
   /***
   * Sampling loop

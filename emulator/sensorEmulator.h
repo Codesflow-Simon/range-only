@@ -72,17 +72,17 @@ ostream& operator<<(std::ostream &strm, const Anchor &a) {
 /**
  * @brief a generic template for both the sensor emulator and physical sensors
 */
-class Sensor {
-    public:
-        virtual map<pair<Anchor,Anchor>,double> sample(Anchor tag);
-        virtual map<pair<Anchor,Anchor>,double> sampleA2a();
-};
+// class Sensor {
+//     public:
+//         virtual map<pair<Anchor,Anchor>,double> sample(Anchor tag);
+//         virtual map<pair<Anchor,Anchor>,double> sampleA2a();
+// };
 
 /**
  * @brief Emulates a tag-anchor environment
  * 
  */
-class SensorEmulator : public Sensor {
+class SensorEmulator {
   private:
     list<Anchor> anchors;
     double error = 0.1;
@@ -162,3 +162,5 @@ class SensorEmulator : public Sensor {
       return output;
     }
 };
+
+typedef SensorEmulator Sensor;

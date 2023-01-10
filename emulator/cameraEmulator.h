@@ -11,37 +11,73 @@
 #include <map>
 #include <random>
 #include <random_tools.h>
-#include "wrappers.h"
 
 using namespace std;
 using namespace gtsam;
 
 typedef PinholeCamera<Cal3_S2> Camera;
 
-class CameraEmulator : public CameraWrapper {
-  private:
+/**
+ * @brief a generic template for both the camera emulator and physical camera
+*/
+class CameraWrapper {
+  protected:
     Camera* camera;
     Cal3_S2::shared_ptr params;
-    Pose3 pose;
+
   public:
 
+    virtual Camera* getCamera() {return camera;}
+    virtual Cal3_S2::shared_ptr  getParams() {return params;}
+
+    virtual Point2 sample(Point3 tag);
+    virtual ~CameraWrapper();
+};
+
+class CameraEmulator : public CameraWrapper {
+  private:
+    Pose3 pose;
+
+  public:
+    /**
+     * @brief getter for camera
+     * @return Camera*
+    */
+    Camera* getCamera() {return camera;}
+
+    /**
+     * @brief getter for Cal3_S2 params
+     * @return Cal3_S2::shared_ptr
+    */
+    Cal3_S2::shared_ptr  getParams() {return params;}
+
+    /**
+     * Default constructor, creates a camera at (-10,0,0), Cal3_S2(60, 6400, 4800)
+    */
     CameraEmulator() {
-      Point3 position = standard_normal_vector3()*3;
+      Point3 position = Point3(-10,0,0);
       pose = Pose3(Rot3::AxisAngle((Point3)-position, 0.0), position); // will always face origin
 
-      params = Cal3_S2::shared_ptr(new Cal3_S2(60, 640, 480)); // FOV (deg), width, height
+      params = Cal3_S2::shared_ptr(new Cal3_S2(60, 6400, 4800)); // FOV (deg), width, height
       Camera* camera = new Camera(pose, *params);
     };
 
+    /**
+     * @brief Camera constructor, copys an existing camera
+    */
     CameraEmulator(Camera* camera_) {
       camera = camera_;
+      pose = camera_->pose();
     }
 
+    /**
+     * @brief Samples the projection of the tag onto the camera 
+    */
     Point2 sample(Point3 tag) {
       return camera->project(tag);
     }
 
-    ~CameraEmulator() {
+    virtual ~CameraEmulator() {
       delete camera;
     }
 };

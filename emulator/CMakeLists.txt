@@ -12,4 +12,4 @@ add_library(
 
 set_target_properties(emulator PROPERTIES LINKER_LANGUAGE CXX)
 target_include_directories(emulator PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
-target_link_libraries(emulator PUBLIC gtsam gtsam_unstable nlohmann_json utils)
+target_link_libraries(emulator PUBLIC gtsam gtsam_unstable nlohmann_json)

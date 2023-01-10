@@ -4,12 +4,79 @@
 #include <map>
 #include <random>
 #include <random_tools.h>
-#include "wrappers.h"
 
 using namespace std; 
 using namespace Eigen;
 
 typedef Eigen::Matrix<double,3,1> Vector3;
+
+/**
+ * @brief Model of anchor or tag object
+ * 
+ */
+class Anchor {
+  public:
+    string ID;
+    Vector3 location;
+
+    /**
+     * @brief Default construction, set ID to empty string and location to zero
+     * 
+     */
+    Anchor() {
+      ID = "";
+      location = Vector3();
+    }
+
+    /**
+     * @brief Construct a new Anchor object
+     * 
+     * @param location_
+     * @param ID_ 
+     */
+    Anchor(Vector3 location_, string ID_) {
+      location = location_;
+      ID = ID_;
+    }
+
+    /**
+     * @brief TEST_CASEs anchor equality
+     * 
+     * @param other 
+     * @return true 
+     * @return false 
+     */
+    bool operator ==(const Anchor& other) const {
+      const string otherID = other.ID;
+      return otherID == ID;
+    }
+
+    bool operator <(const Anchor& other) const {
+      return stoi(ID) < stoi(other.ID);
+    }
+
+    /**
+     * @brief Converts a anchor to human-readable string format
+     * 
+     * @return string
+     */
+    string to_string_() {
+      return "Anchor(\"" + ID + "\", x=" + to_string(location.x()) + ", y=" + to_string(location.y()) + ", z=" + to_string(location.z()) + ")\n";
+    }
+};
+
+ostream& operator<<(std::ostream &strm, const Anchor &a) {
+  return strm << "Anchor(\"" << a.ID << "\", x=" << a.location.x() << ", y=" << a.location.y() << ", z=" << a.location.z() << ")";
+}
+
+/**
+ * @brief a generic template for both the sensor emulator and physical sensors
+*/
+class Sensor {
+    public:
+        virtual map<pair<Anchor,Anchor>,double> sample(Anchor tag);
+        virtual map<pair<Anchor,Anchor>,double> sampleA2a();
+};
 
 /**
  * @brief Emulates a tag-anchor environment

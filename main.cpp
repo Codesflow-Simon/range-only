@@ -1,6 +1,5 @@
 #include "sensorEmulator.h" 
 #include "cameraEmulator.h" 
-#include "wrappers.h"
 #include "logging.h"
 #include "factors.h"
 
@@ -105,10 +104,10 @@ void add_rangeFactors(Graph* graph, Sensor* sensor) {
  * @param camera* camera that makes measurements to write too
  * @param Cal3_S2::shared_ptr camera calibration
 */
-void add_cameraFactors(Graph* graph, Values* values, CameraWrapper* camera, Cal3_S2::shared_ptr params) {
+void add_cameraFactors(Graph* graph, Values* values, CameraWrapper* camera) {
   Point2 measurement = camera->sample(tag.location);
   Key tagKey = keyTable[tag.ID];
-  auto factor = GenericProjectionFactor<Pose3, Point3, Cal3_S2>(measurement, projNoise, C(0), tagKey, params);
+  auto factor = GenericProjectionFactor<Pose3, Point3, Cal3_S2>(measurement, projNoise, C(0), tagKey, camera->getParams());
   graph->add(factor);
 }
 
@@ -152,12 +151,8 @@ Sensor* getSensor() {
  * 
  * @return Emulator 
  */
-CameraWrapper* getCamera(Cal3_S2::shared_ptr calib) {
-  Point3 position = Point3(-10,0,0);
-  Pose3 pose = Pose3(Rot3::AxisAngle((Point3)-position, 0.0), position); // will always face origin
-
-  Camera* camera = new Camera(pose, *calib);
-  return new CameraEmulator(camera);
+CameraWrapper* getCamera() {
+  return new CameraEmulator();
 }
 
 int main() {
@@ -168,8 +163,7 @@ int main() {
 
   Sensor* sensor = getSensor();
 
-  Cal3_S2::shared_ptr params(new Cal3_S2(60, 6400, 4800)); // FOV (deg), width, height
-  CameraWrapper* camera = getCamera(params);
+  CameraWrapper* camera = getCamera();
 
   ISAM2 isam;
   Graph graph;
@@ -196,7 +190,7 @@ int main() {
 
     write_log("adding factors\n");
     add_rangeFactors(&graph, sensor);
-    add_cameraFactors(&graph, &values, camera, params);
+    add_cameraFactors(&graph, &values, camera);
     if (i!=0)     
       graph.add(BetweenFactor<Point3>(X(i), X(i-1), Point3(0,0,0), betweenNoise));
 

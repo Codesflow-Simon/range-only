@@ -1,7 +1,6 @@
 # Install guide
 ## Required software
-[cmake](cmake.org)
-C Compiler such as GCC or MinGW
+[cmake](cmake.org), {break}
 [GTSAM](https://github.com/borglab/gtsam)
 
 

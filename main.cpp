@@ -9,7 +9,7 @@
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/nonlinear/Values.h>
 #include <gtsam/sam/RangeFactor.h>
-#include <gtsam/nonlinear/GaussNewtonOptimizer.h>
+#include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
 #include <gtsam/geometry/Point3.h>
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/nonlinear/Marginals.h>
@@ -27,7 +27,7 @@ using symbol_shorthand::L;
 using symbol_shorthand::C;
 
 Anchor tag;
-int n=6;
+int n=20;
 map<string,Key> keyTable;
 
 /**
@@ -37,10 +37,13 @@ map<string,Key> keyTable;
  * (n number of anchors)
 */
 
-auto anchorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.1);
-auto tagPriorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,4);
+auto anchorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.2);
+auto tagPriorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,10);
 auto distNoise =  gtsam::noiseModel::Isotropic::Sigma(1,0.1);
-auto betweenNoise = gtsam::noiseModel::Isotropic::Sigma(3,0.1);
+
+auto covariance = Eigen::Matrix<double, 3, 3>:: Identity();
+auto betweenNoise = gtsam::noiseModel::Gaussian::Covariance(0.1*covariance);
+// auto betweenNoise = gtsam::noiseModel::Isotropic::Sigma(3,0.1);
 auto projNoise = gtsam::noiseModel::Isotropic::Sigma(2,1);
 auto cameraNoise = gtsam::noiseModel::Isotropic::Sigma(6,1);
 
@@ -160,7 +163,7 @@ int main() {
   init_log();
   Eigen::MatrixXd anchorMatrix = init_anchors();
 
-  Vector3 velocity = standard_normal_vector3() * 0.3; 
+  Vector3 velocity = standard_normal_vector3() * 0.0; 
 
   tag = Anchor( standard_normal_vector3()*1, "1000"); // Set actual tag location
 
@@ -179,7 +182,7 @@ int main() {
   /***
   * Sampling loop
   ***/
-  for (int i=0; i<1000; i++) {
+  for (int i=0; i<100; i++) {
     keyTable[tag.ID] = X(i);
 
     write_log("loop " + to_string(i) + "\n");
@@ -191,23 +194,24 @@ int main() {
     write_log("tag: " + tag.to_string_());
 
     write_log("adding factors\n");
-    add_rangeFactors(&graph, sensor);
-    add_cameraFactors(&graph, &values, camera);
+    // add_rangeFactors(&graph, sensor);
+    // add_cameraFactors(&graph, &values, camera);
     if (i!=0)     
-      graph.add(BetweenFactor<Point3>(X(i), X(i-1), velocity, betweenNoise));
+      graph.add(BetweenFactor<Point3>(X(i-1), X(i), velocity, betweenNoise)); // Between factor uses X(i-1) + velocity ~= X(i)
 
     write_log("Optimising\n");
     
-    values = GaussNewtonOptimizer(graph, values).optimize();
+    values = LevenbergMarquardtOptimizer(graph, values).optimize();
 
     write_matrix(graph.linearize(values)->jacobian().first, "jacobian");
-
-
-    cout << "final tag: " << endl << values.at<Point3>(X(i)) << endl;
-    cout << "tag: " << endl << tag.location << endl;
-    cout << "marginal covariance of final position:" << endl << Marginals(graph, values).marginalCovariance(X(i)) << endl;  
-    cout << "error " << (tag.location - values.at<Point3>(X(i))).norm() << endl << endl;
   }
+  auto covariance = Marginals(graph, values).marginalCovariance(X(99));
+  auto residual = tag.location - values.at<Point3>(X(99));
+
+  cout << "final tag: " << endl << values.at<Point3>(X(99)) << endl;
+  cout << "tag: " << endl << tag.location << endl;
+  cout << "marginal covariance of final position:" << endl << covariance << endl;  
+  cout << "Mahalanobis " << sqrt(residual.transpose() * covariance.inverse() * residual) << endl << endl;
   close_log();
   delete sensor;
   delete camera;

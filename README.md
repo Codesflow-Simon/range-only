@@ -1,6 +1,9 @@
+#  Gaussian process and distance measurement in GTSAM
+##  Simon Little IDENT:LIT079 , simonclittle@outlook.com
+
 # Install guide
 ## Required software
-[cmake](cmake.org), {break}
+[cmake](cmake.org), <br>
 [GTSAM](https://github.com/borglab/gtsam)
 
 

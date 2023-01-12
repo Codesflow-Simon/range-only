@@ -39,13 +39,6 @@ const double zero_threshold = 0.0001;
 // Provides a lookup table from sensor-IDs to their GTSAM symbols
 map<string,Key> keyTable;
 
-/**
- * The following graph indexing conventions will be used
- * 0: tag
- * 1-n: anchors
- * (n number of anchors)
-*/
-
 auto anchorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.11);
 auto tagPriorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,4);
 auto distNoise =  gtsam::noiseModel::Isotropic::Sigma(1,0.1);
@@ -96,11 +89,11 @@ void add_rangeFactors(Graph* graph, Sensor* sensor, bool include_a2a=false) {
 
   // A2a measurements
   if (include_a2a) {
-    map<pair<Anchor,Anchor>,double> A2asample = emulator.sampleA2a();
+    map<pair<Anchor,Anchor>,double> A2asample = sensor->sampleA2a();
     sample.merge(A2asample);
   }
   
-  for (auto pair : sample) {  // ID-measurment pair from sample
+  for (auto pair : sample) {  // ID-measurement pair from sample
     std::pair<Anchor,Anchor> anchorPair = pair.first;
 
     Key keyA = keyTable[anchorPair.first.ID];
@@ -114,7 +107,6 @@ void add_rangeFactors(Graph* graph, Sensor* sensor, bool include_a2a=false) {
 
     graph->add(factor);
   }
-
 }
 
 /**
@@ -168,7 +160,6 @@ Eigen::MatrixXd rbfKernel(int size, double sigma, double lengthScale) {
   return mat;
 } 
 
-
 /**
  * @brief Adds betweenFactors in the style of a gaussian process. Nodes will be connected with covariance corresponding to the kernel matrix.
  * This is designed to be done incrementally, so only the factors in row 'subject' will be created.
@@ -192,7 +183,7 @@ void add_gaussianFactors(Graph* graph, Eigen::Matrix<double,-1,-1> kernel, int s
 }
 
 /**
- * @brief Initialises anchors
+ * @brief Builds a matrix of the position of anchors using random numbers
  * @return Eigen::MatrixXd matrix of the anchors positions
  */
 Eigen::MatrixXd init_anchors() {
@@ -204,9 +195,9 @@ Eigen::MatrixXd init_anchors() {
 }
 
 /**
- * @brief Get the Emulator with preset parameters
- * 
- * @return Emulator 
+ * @brief Get the Emulator and sets anchor position with provided matrix
+ * @param Eigen::MatrixXd anchors, list of anchor positions to set
+ * @return Sensor* pointer to sensor 
  */
 Sensor* getSensor(Eigen::MatrixXd anchors) {
   SensorEmulator* sensor = new SensorEmulator();
@@ -227,58 +218,49 @@ Sensor* getSensor(Eigen::MatrixXd anchors) {
 }
 
 /**
- * @brief Get the Emulator with preset parameters
- * 
- * @return Emulator 
+ * @brief Get the Emulator with default parameters
+ * @return CameraWrapper* 
  */
 CameraWrapper* getCamera() {
   return new CameraEmulator();
 }
 /**
- * @brief Get the Emulator with preset parameters
- * 
- * @return Emulator 
+ * @brief Get the Emulator with specific pose parameters
+ * @return CameraWrapper*
  */
 CameraWrapper* getCamera(Pose3 pose) {
   return new CameraEmulator(pose);
 }
 
-
 int main() {
   init_log();
   Eigen::MatrixXd anchorMatrix = init_anchors();
 
-  Vector3 velocity = standard_normal_vector3() * 0.1; 
-  tag = Anchor( standard_normal_vector3()*4, "1000"); // Set actual tag location
+  Vector3 velocity = standard_normal_vector3() * 0.1; // Sets a constant velocity, this will bias the tag movement every time step
+  tag = Anchor( standard_normal_vector3()*4, "1000"); // Set actual tag location, using tag ID to be 1000
 
   Sensor* sensor = getSensor(anchorMatrix);
   auto cameras = list<CameraWrapper*>{getCamera(Pose3(Rot3::RzRyRx(0,0,0), Point3(0,0,-20))),
                                       getCamera(Pose3(Rot3::RzRyRx(0,M_PI/2,0), Point3(-20,0,0)))};
   auto kernel = rbfKernel(gaussianMaxWidth, kernelSigma, kernelLength); // Sigma scales output, length slows oscillation
 
-
   Graph graph;
-  Values values, current_estimate;
+  Values values;
   
-  write_log("adding tag priors\n");
   add_priors(&graph, &values, cameras, anchorMatrix);
 
-  /***
-  * Sampling loop
-  ***/
-
-  Eigen::MatrixXd data(samples,9);
+  Eigen::MatrixXd data(samples,9); // Data to export for analysis
 
   for (int i=0; i<samples; i++) {
-    keyTable[tag.ID] = X(i);
-
     write_log("loop " + to_string(i) + "\n");
-    tag.location += standard_normal_vector3()*0.1 + velocity;
+
+    keyTable[tag.ID] = X(i); // Sets the tag Key for the current index    
+    tag.location += standard_normal_vector3()*0.1 + velocity; // Move tag
+    write_log("tag: " + tag.to_string_());
 
     if (i!=0){
-      values.insert(X(i), values.at<Point3>(X(i-1)));
-    }
-    write_log("tag: " + tag.to_string_());
+      values.insert(X(i), values.at<Point3>(X(i-1)) + velocity); // Initially assuming uniform tag movement
+    } 
 
     write_log("adding factors\n");
     add_rangeFactors(&graph, sensor);
@@ -287,13 +269,11 @@ int main() {
 
     write_log("Optimising\n");
 
-    write_matrix(graph.linearize(values)->jacobian().first, "jacobian");
+    values = LevenbergMarquardtOptimizer(graph, values).optimize(); // Optimisation step
 
-    values = LevenbergMarquardtOptimizer(graph, values).optimize();
+    write_matrix(graph.linearize(values)->jacobian().first, "jacobian"); // Records Jacobian for debugging
 
-    write_matrix(graph.linearize(values)->jacobian().first, "jacobian");
-
-    Point3 estimate = values.at<Point3>(X(i)); 
+    Point3 estimate = values.at<Point3>(X(i)); // Records data for analysis
     auto covariance = Marginals(graph, values).marginalCovariance(X(i));
     data(i,0) = estimate.x();
     data(i,1) = estimate.y();
@@ -305,11 +285,12 @@ int main() {
     data(i,7) = tag.location.y();
     data(i,8) = tag.location.z();
   }
-  write_matrix(data, "data");
+
+  write_matrix(data, "data"); // Writes recorded data to file
   auto covariance = Marginals(graph, values).marginalCovariance(X(samples-1));
   auto residual = tag.location - values.at<Point3>(X(samples-1));
 
-  cout << "final tag: " << endl << values.at<Point3>(X(samples-1)) << endl;
+  cout << "final tag: " << endl << values.at<Point3>(X(samples-1)) << endl; // Final report to console
   cout << "tag: " << endl << tag.location << endl;
   cout << "marginal covariance of final position:" << endl << covariance << endl;  
   cout << "Mahalanobis " << sqrt(residual.transpose() * covariance.inverse() * residual)  << endl;
@@ -319,22 +300,3 @@ int main() {
   for (auto camera : cameras) delete camera;
 }
 
-// Doxygen mainpage
-
-/* 
- * To build and run
- * \code{.sh} 
- * mkdir build
- * cd build
- * cmake ..
- * make
- * ./main
- * \endcode 
- * 
- * Generate documentation
- * \code{.sh}
- * doxygen docs_conf
- * \endcode 
- *
- * etc...
- */

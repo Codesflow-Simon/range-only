@@ -70,5 +70,12 @@
         "semaphore": "cpp",
         "stop_token": "cpp",
         "*.ipp": "cpp"
-    }
+    },
+    "cSpell.words": [
+        "Levenberg",
+        "linearize",
+        "mainpage",
+        "Marquardt",
+        "Optimising"
+    ]
 }

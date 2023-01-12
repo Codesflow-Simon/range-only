@@ -8,6 +8,7 @@ using namespace std;
 
 std::default_random_engine gen;
 normal_distribution<double> d{0,1}; 
+mt19937 otherGen;
 double standard_normal_generator() {
   return d(gen);
 }

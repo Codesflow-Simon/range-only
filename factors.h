@@ -1,10 +1,10 @@
 #include <gtsam/nonlinear/NonlinearFactor.h>
 #include <gtsam/geometry/Point3.h>
+#include <gtsam/inference/Symbol.h>
+
 
 using namespace std;
 using namespace gtsam;
-
-// typedef Eigen::Matrix<double,3,1> Vector3;
 
 class DistanceFactor: public gtsam::NoiseModelFactorN<Point3, Point3> {
   private:
@@ -53,3 +53,4 @@ class DistanceFactor: public gtsam::NoiseModelFactorN<Point3, Point3> {
 
   // virtual ~DistanceFactor() {}
 };
+

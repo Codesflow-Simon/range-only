@@ -53,13 +53,31 @@ class CameraEmulator {
     Cal3_S2::shared_ptr  getParams() {return params;}
 
     /**
-     * Default constructor, creates a camera at (-10,0,0), Cal3_S2(60, 6400, 4800)
+     * Default constructor, creates a camera at specified position, Cal3_S2(60, 6400, 4800)
     */
     CameraEmulator() {
-      Point3 position = Point3(-10,0,0);
-      Pose3 pose = Pose3(Rot3::AxisAngle((Point3)-position, 0.0), position); // will always face origin
+      Point3 position = standard_normal_vector3()*5;
+      Pose3 pose = Pose3(Rot3::Random(otherGen), position); // will always be identity
 
-      params = Cal3_S2::shared_ptr(new Cal3_S2(60, 6400, 4800)); // FOV (deg), width, height
+      params = Cal3_S2::shared_ptr(new Cal3_S2(60, 640, 480)); // FOV (deg), width, height
+      camera = new Camera(pose, *params);
+    };
+
+    /**
+     * Default constructor, creates a camera at specified position, Cal3_S2(60, 6400, 4800)
+    */
+    CameraEmulator(Point3 position) {
+      Pose3 pose = Pose3(Rot3(), position); // will always be identity
+
+      params = Cal3_S2::shared_ptr(new Cal3_S2(60, 640, 480)); // FOV (deg), width, height
+      camera = new Camera(pose, *params);
+    };
+
+    /**
+     * Default constructor, creates a camera at specified position, Cal3_S2(60, 6400, 4800)
+    */
+    CameraEmulator(Pose3 pose) {
+      params = Cal3_S2::shared_ptr(new Cal3_S2(30, 640, 480)); // FOV (deg), width, height
       camera = new Camera(pose, *params);
     };
 
@@ -74,7 +92,7 @@ class CameraEmulator {
      * @brief Samples the projection of the tag onto the camera 
     */
     Point2 sample(Point3 tag) {
-      return camera->Project(tag);
+      return camera->project(tag);
     }
 
     virtual ~CameraEmulator() {

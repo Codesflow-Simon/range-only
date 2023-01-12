@@ -55,17 +55,25 @@ void write_matrix(MatrixXd mat, string id) {
 
 typedef Eigen::Matrix<double,3,1> Vector3;
 
+ /**
+  * Returns key as a human-readable string
+ */
+string keyToString(Symbol key) {
+  return string(1,key.chr()) + to_string(key.index());
+}
+
+ /**
+  * Returns vector as a human-readable string
+ */
+string vecToString(Vector3 vec) {
+  return "Vector3( " + to_string(vec(0)) + ", " + to_string(vec(1)) + ", " + to_string(vec(2)) + ")";
+}
+
 /**
  * @brief Writes to log
  * 
  * @param vector 
  */
 void write_log(Vector3 vector) {
-  debugLog <<  "Vector3( "<< vector(0) << ", " << vector(1) << ", " << vector(2) << ")" << endl;
-}
- /**
-  * Returns key as a human-readable string
- */
-string keyToString(Symbol key) {
-  return string(1,key.chr()) + to_string(key.index());
+  debugLog <<  vecToString(vector) << endl;
 }

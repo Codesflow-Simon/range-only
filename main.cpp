@@ -30,11 +30,11 @@ using symbol_shorthand::C;
 Anchor tag;
 
 // Model parameters
-const int samples = 50;
-const double kernelSigma = 0.1;
-const double kernelLength = 1;
+const int samples = 200;
+const double kernelSigma = 4;
+const double kernelLength = 0.5;
 const int numSensors=10;
-const int gaussianMaxWidth = 5;
+const int gaussianMaxWidth = 10;
 const double zero_threshold = 0.0001;
 
 // Provides a lookup table from sensor-IDs to their GTSAM symbols
@@ -161,6 +161,35 @@ Eigen::MatrixXd rbfKernel(int size, double sigma, double lengthScale) {
 } 
 
 /**
+ * @brief function of the Brownian motion kernel for gaussian processes (https://math.stackexchange.com/questions/1273437/brownian-motion-and-covariance)
+ * @param int a, first index
+ * @param int b, second index
+ * @param int sigma, scales output by sigma^2
+ * @param double lengthScale, increase to make smoother
+ * @return double covariance
+*/
+double brownianKernelFunction(int a, int b, int currentTime, int size, double sigma) {
+  return pow(sigma,2) * min(currentTime-size+a, currentTime-size+a);
+}
+
+/**
+ * @brief will fetch a square matrix of dimension `size + 1` using the brownianKernelFunction to generate covariances
+ * @param int size, will create matrix of dimension size+1, meaning passing gaussianMaxWidth with generate the correct sized matrix
+ * @param double sigma, will pass to brownianKernelFunction
+ * @return Eigen::MatrixXd kernel matrix
+*/
+Eigen::MatrixXd brownianKernel(int size, int timestep, double sigma) {
+  int matSize = size+1; //Including diagonal
+  auto mat = Eigen::MatrixXd(matSize,matSize); 
+  for (int i=0; i<matSize; i++) {
+    for (int j=0; j<matSize; j++) {
+      mat(i,j) = brownianKernelFunction(i,j,timestep,size,sigma);
+    }
+  }
+  return mat;
+} 
+
+/**
  * @brief Adds betweenFactors in the style of a gaussian process. Nodes will be connected with covariance corresponding to the kernel matrix.
  * This is designed to be done incrementally, so only the factors in row 'subject' will be created.
  * This is also constrained by the 'gaussianMaxWidth' hyperparameter that bounds the size of the covariance matrix which limits factors created and helps speed.
@@ -189,7 +218,7 @@ void add_gaussianFactors(Graph* graph, Eigen::Matrix<double,-1,-1> kernel, int s
 Eigen::MatrixXd init_anchors() {
   Eigen::MatrixXd anchors = MatrixXd::Zero(numSensors,3);
   for (int i=0; i<numSensors; i++) {
-    anchors.row(i) = standard_normal_vector3()*3;
+    anchors.row(i) = standard_normal_vector3()*2;
   }
   return anchors;
 }
@@ -236,13 +265,13 @@ int main() {
   init_log();
   Eigen::MatrixXd anchorMatrix = init_anchors();
 
-  Point3 velocity = standard_normal_vector3() * 0.2; // Sets a constant velocity, this will bias the tag movement every time step
+  Point3 velocity = standard_normal_vector3() * 0.0; // Sets a constant velocity, this will bias the tag movement every time step
   tag = Anchor( standard_normal_vector3() *0.5, "1000"); // Set actual tag location, using tag ID to be 1000
 
   Sensor* sensor = getSensor(anchorMatrix);
   auto cameras = list<CameraWrapper*>{getCamera(Pose3(Rot3::RzRyRx(0,0,0), Point3(0,0,-20))),
                                       getCamera(Pose3(Rot3::RzRyRx(0,M_PI/2,0), Point3(-20,0,0)))};
-  auto kernel = rbfKernel(gaussianMaxWidth, kernelSigma, kernelLength); // Sigma scales output, length slows oscillation
+  // auto kernel = rbfKernel(gaussianMaxWidth, kernelSigma, kernelLength); // Sigma scales output, length slows oscillation
 
   Graph graph;
   Values values;
@@ -263,6 +292,8 @@ int main() {
       values.insert(X(i), prev); // Initially assuming uniform tag movement
     } 
 
+    auto kernel = brownianKernel(gaussianMaxWidth, i, kernelSigma);
+
     write_log("adding factors\n");
     add_rangeFactors(&graph, sensor);
     // add_cameraFactors(&graph, &values, cameras);
@@ -275,17 +306,29 @@ int main() {
     write_matrix(graph.linearize(values)->jacobian().first, "jacobian"); // Records Jacobian for debugging
     write_matrix(anchorMatrix, "anchors");
 
-    Point3 estimate = values.at<Point3>(X(i)); // Records data for analysis
+    // Point3 estimate = values.at<Point3>(X(i)); // Records data for analysis
+    // auto covariance = Marginals(graph, values).marginalCovariance(X(i));
+    // data(i,0) = estimate.x();
+    // data(i,1) = estimate.y();
+    // data(i,2) = estimate.z();
+    // data(i,3) = sqrt(covariance(0,0));
+    // data(i,4) = sqrt(covariance(1,1));
+    // data(i,5) = sqrt(covariance(2,2));
+    data(i,6) = tag.location.x();
+    data(i,7) = tag.location.y();
+    data(i,8) = tag.location.z();
+  }
+
+  for (int i=0; i<samples; i++) {
+    Point3 estimate = values.at<Point3>(X(i));
     auto covariance = Marginals(graph, values).marginalCovariance(X(i));
+
     data(i,0) = estimate.x();
     data(i,1) = estimate.y();
     data(i,2) = estimate.z();
     data(i,3) = sqrt(covariance(0,0));
     data(i,4) = sqrt(covariance(1,1));
     data(i,5) = sqrt(covariance(2,2));
-    data(i,6) = tag.location.x();
-    data(i,7) = tag.location.y();
-    data(i,8) = tag.location.z();
   }
 
   write_matrix(data, "data"); // Writes recorded data to file
@@ -295,8 +338,6 @@ int main() {
   cout << "final tag: " << endl << values.at<Point3>(X(samples-1)) << endl; // Final report to console
   cout << "tag: " << endl << tag.location << endl;
   cout << "marginal covariance of final position:" << endl << covariance << endl;  
-  cout << "Mahalanobis " << sqrt(residual.transpose() * covariance.inverse() * residual)  << endl;
-  cout << "Error " << residual.norm() << endl << endl;
   close_log();
   delete sensor;
   for (auto camera : cameras) delete camera;

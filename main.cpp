@@ -2,6 +2,7 @@
 #include "cameraEmulator.h" 
 #include "logging.h"
 #include "factors.h"
+#include "kernels.h"
 
 #include <gtsam/nonlinear/ISAM2.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
@@ -34,7 +35,7 @@ const int samples = 200;
 const double kernelSigma = 4;
 const double kernelLength = 0.5;
 const int numSensors=10;
-const int gaussianMaxWidth = 10;
+const int gaussianMaxWidth = 50;
 const double zero_threshold = 0.0001;
 
 // Provides a lookup table from sensor-IDs to their GTSAM symbols
@@ -130,66 +131,6 @@ void add_cameraFactors(Graph* graph, Values* values, list<CameraWrapper*> camera
 }
 
 /**
- * @brief function of the RBF kernel for gaussian processes (https://en.wikipedia.org/wiki/Radial_basis_function_kernel)
- * @param int a, first index
- * @param int b, second index
- * @param double sigma, scales output by sigma^2
- * @param double lengthScale, increase to make smoother
- * @return double covariance
-*/
-double rbfKernelFunction(int a, int b, double sigma, double lengthScale) {
-  return pow(sigma,2) * exp(-pow(abs(a-b),2)/(2*pow(lengthScale,2)));
-}
-
-/**
- * @brief will fetch a square matrix of dimension `size + 1` using the rbfKernelFunction to generate covariances
- * @param int size, will create matrix of dimension size+1, meaning passing gaussianMaxWidth with generate the correct sized matrix
- * @param double sigma, will pass to rbfKernelFunction
- * @param double lengthScale, will pass to rbfKernelFunction
- * @return Eigen::MatrixXd kernel matrix
-*/
-Eigen::MatrixXd rbfKernel(int size, double sigma, double lengthScale) {
-  int matSize = size+1; //Including diagonal
-  auto mat = Eigen::MatrixXd(matSize,matSize); 
-  for (int i=0; i<matSize; i++) {
-    for (int j=0; j<matSize; j++) {
-      mat(i,j) = rbfKernelFunction(i,j,sigma,lengthScale);
-    }
-  }
-  cout << mat << endl;
-  return mat;
-} 
-
-/**
- * @brief function of the Brownian motion kernel for gaussian processes (https://math.stackexchange.com/questions/1273437/brownian-motion-and-covariance)
- * @param int a, first index
- * @param int b, second index
- * @param int sigma, scales output by sigma^2
- * @param double lengthScale, increase to make smoother
- * @return double covariance
-*/
-double brownianKernelFunction(int a, int b, int currentTime, int size, double sigma) {
-  return pow(sigma,2) * min(currentTime-size+a, currentTime-size+a);
-}
-
-/**
- * @brief will fetch a square matrix of dimension `size + 1` using the brownianKernelFunction to generate covariances
- * @param int size, will create matrix of dimension size+1, meaning passing gaussianMaxWidth with generate the correct sized matrix
- * @param double sigma, will pass to brownianKernelFunction
- * @return Eigen::MatrixXd kernel matrix
-*/
-Eigen::MatrixXd brownianKernel(int size, int timestep, double sigma) {
-  int matSize = size+1; //Including diagonal
-  auto mat = Eigen::MatrixXd(matSize,matSize); 
-  for (int i=0; i<matSize; i++) {
-    for (int j=0; j<matSize; j++) {
-      mat(i,j) = brownianKernelFunction(i,j,timestep,size,sigma);
-    }
-  }
-  return mat;
-} 
-
-/**
  * @brief Adds betweenFactors in the style of a gaussian process. Nodes will be connected with covariance corresponding to the kernel matrix.
  * This is designed to be done incrementally, so only the factors in row 'subject' will be created.
  * This is also constrained by the 'gaussianMaxWidth' hyperparameter that bounds the size of the covariance matrix which limits factors created and helps speed.
@@ -273,8 +214,9 @@ int main() {
                                       getCamera(Pose3(Rot3::RzRyRx(0,M_PI/2,0), Point3(-20,0,0)))};
   // auto kernel = rbfKernel(gaussianMaxWidth, kernelSigma, kernelLength); // Sigma scales output, length slows oscillation
 
+  ISAM2 isam;
   Graph graph;
-  Values values;
+  Values values, estimated_values;
   
   add_priors(&graph, &values, cameras, anchorMatrix);
 
@@ -288,7 +230,7 @@ int main() {
     write_log("tag: " + tag.to_string_());
 
     if (i!=0){
-      Point3 prev = values.at<Point3>(X(i-1)) + (Point3)velocity;
+      Point3 prev = estimated_values.at<Point3>(X(i-1)) + (Point3)velocity;
       values.insert(X(i), prev); // Initially assuming uniform tag movement
     } 
 
@@ -301,10 +243,14 @@ int main() {
 
     write_log("Optimising\n");
 
-    values = LevenbergMarquardtOptimizer(graph, values).optimize(); // Optimisation step
+    // values = LevenbergMarquardtOptimizer(graph, values).optimize(); // Optimisation step
+    isam.update(graph, values);
 
-    write_matrix(graph.linearize(values)->jacobian().first, "jacobian"); // Records Jacobian for debugging
-    write_matrix(anchorMatrix, "anchors");
+    graph.resize(0);
+    values.clear();
+    estimated_values = isam.calculateEstimate();
+
+    // write_matrix(graph.linearize(values)->jacobian().first, "jacobian"); // Records Jacobian for debugging
 
     // Point3 estimate = values.at<Point3>(X(i)); // Records data for analysis
     // auto covariance = Marginals(graph, values).marginalCovariance(X(i));
@@ -318,10 +264,14 @@ int main() {
     data(i,7) = tag.location.y();
     data(i,8) = tag.location.z();
   }
+  /*--------- END SAMPLE LOOP ---------*/
+  
+  values = isam.calculateBestEstimate();
 
   for (int i=0; i<samples; i++) {
     Point3 estimate = values.at<Point3>(X(i));
-    auto covariance = Marginals(graph, values).marginalCovariance(X(i));
+    auto covariance = isam.marginalCovariance(X(i));
+    // auto covariance = Marginals(graph, values).marginalCovariance(X(i));
 
     data(i,0) = estimate.x();
     data(i,1) = estimate.y();
@@ -331,8 +281,10 @@ int main() {
     data(i,5) = sqrt(covariance(2,2));
   }
 
+  write_matrix(anchorMatrix, "anchors");
   write_matrix(data, "data"); // Writes recorded data to file
-  auto covariance = Marginals(graph, values).marginalCovariance(X(samples-1));
+  auto covariance = isam.marginalCovariance(X(samples-1));
+  // auto covariance = Marginals(graph, values).marginalCovariance(X(samples-1));
   auto residual = tag.location - values.at<Point3>(X(samples-1));
 
   cout << "final tag: " << endl << values.at<Point3>(X(samples-1)) << endl; // Final report to console

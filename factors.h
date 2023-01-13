@@ -6,6 +6,7 @@
 using namespace std;
 using namespace gtsam;
 
+// This is identical to RangeFactor
 class DistanceFactor: public gtsam::NoiseModelFactorN<Point3, Point3> {
   private:
 
@@ -51,6 +52,5 @@ class DistanceFactor: public gtsam::NoiseModelFactorN<Point3, Point3> {
     return Vector1(distance - measurement);
   }
 
-  // virtual ~DistanceFactor() {}
 };
 

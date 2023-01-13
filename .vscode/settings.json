@@ -72,6 +72,8 @@
         "*.ipp": "cpp"
     },
     "cSpell.words": [
+        "Eigen",
+        "gtsam",
         "Levenberg",
         "linearize",
         "mainpage",

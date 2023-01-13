@@ -14,6 +14,7 @@
 #include <gtsam/nonlinear/Marginals.h>
 #include <gtsam/slam/ProjectionFactor.h>
 #include <gtsam/geometry/Cal3_S2.h>
+#include <gtsam_unstable/nonlinear/FixedLagSmoother.h>
 
 
 using namespace gtsam;
@@ -29,8 +30,8 @@ using symbol_shorthand::C;
 Anchor tag;
 
 // Model parameters
-const int samples = 20;
-const double kernelSigma = 1;
+const int samples = 50;
+const double kernelSigma = 0.1;
 const double kernelLength = 1;
 const int numSensors=10;
 const int gaussianMaxWidth = 5;
@@ -41,8 +42,7 @@ map<string,Key> keyTable;
 
 auto anchorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.11);
 auto tagPriorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,4);
-auto distNoise =  gtsam::noiseModel::Isotropic::Sigma(1,0.1);
-auto betweenNoise = gtsam::noiseModel::Isotropic::Sigma(3,1.1);
+auto distNoise =  gtsam::noiseModel::Isotropic::Sigma(1,0.12);
 auto projNoise = gtsam::noiseModel::Isotropic::Sigma(2,1);
 auto cameraNoise = gtsam::noiseModel::Isotropic::Sigma(6,1.2);
 
@@ -142,8 +142,8 @@ double rbfKernelFunction(int a, int b, double sigma, double lengthScale) {
 }
 
 /**
- * @brief will fetch a sqaure matrix of dimention `size + 1` using the rbfKernelFunction to generate covariances
- * @param int size, will create matrix of dimention size+1, meaning passing gaussianMaxWidth with generate the correct sized matrix
+ * @brief will fetch a square matrix of dimension `size + 1` using the rbfKernelFunction to generate covariances
+ * @param int size, will create matrix of dimension size+1, meaning passing gaussianMaxWidth with generate the correct sized matrix
  * @param double sigma, will pass to rbfKernelFunction
  * @param double lengthScale, will pass to rbfKernelFunction
  * @return Eigen::MatrixXd kernel matrix
@@ -189,7 +189,7 @@ void add_gaussianFactors(Graph* graph, Eigen::Matrix<double,-1,-1> kernel, int s
 Eigen::MatrixXd init_anchors() {
   Eigen::MatrixXd anchors = MatrixXd::Zero(numSensors,3);
   for (int i=0; i<numSensors; i++) {
-    anchors.row(i) = standard_normal_vector3() * 3;
+    anchors.row(i) = standard_normal_vector3()*3;
   }
   return anchors;
 }
@@ -236,8 +236,8 @@ int main() {
   init_log();
   Eigen::MatrixXd anchorMatrix = init_anchors();
 
-  Vector3 velocity = standard_normal_vector3() * 0.1; // Sets a constant velocity, this will bias the tag movement every time step
-  tag = Anchor( standard_normal_vector3()*4, "1000"); // Set actual tag location, using tag ID to be 1000
+  Point3 velocity = standard_normal_vector3() * 0.2; // Sets a constant velocity, this will bias the tag movement every time step
+  tag = Anchor( standard_normal_vector3() *0.5, "1000"); // Set actual tag location, using tag ID to be 1000
 
   Sensor* sensor = getSensor(anchorMatrix);
   auto cameras = list<CameraWrapper*>{getCamera(Pose3(Rot3::RzRyRx(0,0,0), Point3(0,0,-20))),
@@ -259,12 +259,13 @@ int main() {
     write_log("tag: " + tag.to_string_());
 
     if (i!=0){
-      values.insert(X(i), values.at<Point3>(X(i-1)) + velocity); // Initially assuming uniform tag movement
+      Point3 prev = values.at<Point3>(X(i-1)) + (Point3)velocity;
+      values.insert(X(i), prev); // Initially assuming uniform tag movement
     } 
 
     write_log("adding factors\n");
     add_rangeFactors(&graph, sensor);
-    add_cameraFactors(&graph, &values, cameras);
+    // add_cameraFactors(&graph, &values, cameras);
     add_gaussianFactors(&graph, kernel, i, velocity);
 
     write_log("Optimising\n");
@@ -272,6 +273,7 @@ int main() {
     values = LevenbergMarquardtOptimizer(graph, values).optimize(); // Optimisation step
 
     write_matrix(graph.linearize(values)->jacobian().first, "jacobian"); // Records Jacobian for debugging
+    write_matrix(anchorMatrix, "anchors");
 
     Point3 estimate = values.at<Point3>(X(i)); // Records data for analysis
     auto covariance = Marginals(graph, values).marginalCovariance(X(i));

@@ -43,6 +43,8 @@ void write_log(string str) {
 void write_matrix(MatrixXd mat, string id) {
   ofstream matrixLog;
   matrixLog.open(id + ".csv", ofstream::out | ofstream::trunc);
+  for (int i=0; i<mat.cols()-1; i++) matrixLog << ",";
+  matrixLog << "\n";
   for (int i=0; i<mat.rows(); i++) {
     for (int j=0; j<mat.cols(); j++) {
       matrixLog << mat(i,j);

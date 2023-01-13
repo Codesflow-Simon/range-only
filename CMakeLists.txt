@@ -8,6 +8,7 @@ find_package(GTSAM REQUIRED)
 
 find_package(GTSAMCMakeTools)
 find_package(nlohmann_json)
+find_package(Catch2 REQUIRED)
 
 include_directories(BEFORE "${PROJECT_SOURCE_DIR}")
 
@@ -23,8 +24,6 @@ target_link_libraries(main PUBLIC gtsam gtsam_unstable nlohmann_json libs emulat
 set (testing 0)
 if(testing)
     enable_testing()
-
-    find_package(Catch2 REQUIRED)
 
     add_subdirectory(tests)
 endif()

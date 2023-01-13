@@ -28,7 +28,7 @@ Eigen::MatrixXd rbfKernel(int size, double sigma, double lengthScale) {
       mat(i,j) = rbfKernelFunction(i,j,sigma,lengthScale);
     }
   }
-  cout << mat << endl;
+//   cout << mat << endl;
   return mat;
 } 
 
@@ -51,6 +51,35 @@ double brownianKernelFunction(int a, int b, int currentTime, int size, double si
  * @return Eigen::MatrixXd kernel matrix
 */
 Eigen::MatrixXd brownianKernel(int size, int timestep, double sigma) {
+  int matSize = size+1; //Including diagonal
+  auto mat = Eigen::MatrixXd(matSize,matSize); 
+  for (int i=0; i<matSize; i++) {
+    for (int j=0; j<matSize; j++) {
+      mat(i,j) = brownianKernelFunction(i,j,timestep,size,sigma);
+    }
+  }
+  return mat;
+} 
+
+/**
+ * @brief function of the Matern kernel for gaussian processes (https://math.stackexchange.com/questions/1273437/brownian-motion-and-covariance)
+ * @param int d, distance
+ * @param int p, model parameter
+ * @param int v, model parameter
+ * @param double sigma, scale
+ * @return double covariance
+*/
+double maternKernelFunction(int d, double p, double v, double sigma) {
+  return pow(sigma,2) * pow(2,1-v)/(gamma(v)) * pow(sqrt(2*v)*d/p,v); // incomplete, need Bessel function
+}
+
+/**
+ * @brief will fetch a square matrix of dimension `size + 1` using the maternKernelFunction to generate covariances
+ * @param int size, will create matrix of dimension size+1, meaning passing gaussianMaxWidth with generate the correct sized matrix
+ * @param double sigma, will pass to maternKernelFunction
+ * @return Eigen::MatrixXd kernel matrix
+*/
+Eigen::MatrixXd maternKernel(int size, int timestep, double sigma) {
   int matSize = size+1; //Including diagonal
   auto mat = Eigen::MatrixXd(matSize,matSize); 
   for (int i=0; i<matSize; i++) {

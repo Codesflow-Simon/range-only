@@ -32,10 +32,10 @@ Anchor tag;
 
 // Model parameters
 const int samples = 200;
-const double kernelSigma = 4;
+const double kernelSigma = 0.1;
 const double kernelLength = 0.5;
 const int numSensors=10;
-const int gaussianMaxWidth = 50;
+const int gaussianMaxWidth = 200;
 const double zero_threshold = 0.0001;
 
 // Provides a lookup table from sensor-IDs to their GTSAM symbols
@@ -207,12 +207,12 @@ int main() {
   Eigen::MatrixXd anchorMatrix = init_anchors();
 
   Point3 velocity = standard_normal_vector3() * 0.0; // Sets a constant velocity, this will bias the tag movement every time step
-  tag = Anchor( standard_normal_vector3() *0.5, "1000"); // Set actual tag location, using tag ID to be 1000
+  tag = Anchor( standard_normal_vector3() *2, "1000"); // Set actual tag location, using tag ID to be 1000
 
   Sensor* sensor = getSensor(anchorMatrix);
   auto cameras = list<CameraWrapper*>{getCamera(Pose3(Rot3::RzRyRx(0,0,0), Point3(0,0,-20))),
                                       getCamera(Pose3(Rot3::RzRyRx(0,M_PI/2,0), Point3(-20,0,0)))};
-  // auto kernel = rbfKernel(gaussianMaxWidth, kernelSigma, kernelLength); // Sigma scales output, length slows oscillation
+  auto kernel = rbfKernel(gaussianMaxWidth, kernelSigma, kernelLength); // Sigma scales output, length slows oscillation
 
   ISAM2 isam;
   Graph graph;
@@ -234,7 +234,7 @@ int main() {
       values.insert(X(i), prev); // Initially assuming uniform tag movement
     } 
 
-    auto kernel = brownianKernel(gaussianMaxWidth, i, kernelSigma);
+    // auto kernel = brownianKernel(gaussianMaxWidth, i, kernelSigma);
 
     write_log("adding factors\n");
     add_rangeFactors(&graph, sensor);
@@ -250,16 +250,6 @@ int main() {
     values.clear();
     estimated_values = isam.calculateEstimate();
 
-    // write_matrix(graph.linearize(values)->jacobian().first, "jacobian"); // Records Jacobian for debugging
-
-    // Point3 estimate = values.at<Point3>(X(i)); // Records data for analysis
-    // auto covariance = Marginals(graph, values).marginalCovariance(X(i));
-    // data(i,0) = estimate.x();
-    // data(i,1) = estimate.y();
-    // data(i,2) = estimate.z();
-    // data(i,3) = sqrt(covariance(0,0));
-    // data(i,4) = sqrt(covariance(1,1));
-    // data(i,5) = sqrt(covariance(2,2));
     data(i,6) = tag.location.x();
     data(i,7) = tag.location.y();
     data(i,8) = tag.location.z();
@@ -271,7 +261,6 @@ int main() {
   for (int i=0; i<samples; i++) {
     Point3 estimate = values.at<Point3>(X(i));
     auto covariance = isam.marginalCovariance(X(i));
-    // auto covariance = Marginals(graph, values).marginalCovariance(X(i));
 
     data(i,0) = estimate.x();
     data(i,1) = estimate.y();
@@ -284,7 +273,6 @@ int main() {
   write_matrix(anchorMatrix, "anchors");
   write_matrix(data, "data"); // Writes recorded data to file
   auto covariance = isam.marginalCovariance(X(samples-1));
-  // auto covariance = Marginals(graph, values).marginalCovariance(X(samples-1));
   auto residual = tag.location - values.at<Point3>(X(samples-1));
 
   cout << "final tag: " << endl << values.at<Point3>(X(samples-1)) << endl; // Final report to console

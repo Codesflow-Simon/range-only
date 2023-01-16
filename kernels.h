@@ -40,8 +40,8 @@ Eigen::MatrixXd rbfKernel(int size, double sigma, double lengthScale) {
  * @param double lengthScale, increase to make smoother
  * @return double covariance
 */
-double brownianKernelFunction(int a, int b, int currentTime, int size, double sigma) {
-  return pow(sigma,2) * min(currentTime-size+a, currentTime-size+a);
+double brownianKernelFunction(int a, int b, double sigma) {
+  return pow(sigma,2) * min(a, b);
 }
 
 /**
@@ -50,12 +50,12 @@ double brownianKernelFunction(int a, int b, int currentTime, int size, double si
  * @param double sigma, will pass to brownianKernelFunction
  * @return Eigen::MatrixXd kernel matrix
 */
-Eigen::MatrixXd brownianKernel(int size, int timestep, double sigma) {
+Eigen::MatrixXd brownianKernel(int size, double sigma) {
   int matSize = size+1; //Including diagonal
   auto mat = Eigen::MatrixXd(matSize,matSize); 
   for (int i=0; i<matSize; i++) {
     for (int j=0; j<matSize; j++) {
-      mat(i,j) = brownianKernelFunction(i,j,timestep,size,sigma);
+      mat(i,j) = brownianKernelFunction(i,j,sigma);
     }
   }
   return mat;
@@ -84,7 +84,7 @@ Eigen::MatrixXd maternKernel(int size, int timestep, double sigma) {
   auto mat = Eigen::MatrixXd(matSize,matSize); 
   for (int i=0; i<matSize; i++) {
     for (int j=0; j<matSize; j++) {
-      mat(i,j) = brownianKernelFunction(i,j,timestep,size,sigma);
+      mat(i,j) = brownianKernelFunction(i,j,sigma);
     }
   }
   return mat;

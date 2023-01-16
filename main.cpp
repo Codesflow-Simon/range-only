@@ -33,10 +33,16 @@ Anchor tag;
 // Model parameters
 const int samples = 200;
 const double kernelSigma = 0.1;
-const double kernelLength = 0.5;
+const double kernelLength = 1;
 const int numSensors=10;
 const int gaussianMaxWidth = 200;
-const double zero_threshold = 0.0001;
+const double zero_threshold = 1E-12;
+
+// Simulation
+const double increment_sigma = 0.1;
+const double velocity_sigma = 0;
+const double tagStart_sigma = 1;
+const double anchorStart_sigma = 3;
 
 // Provides a lookup table from sensor-IDs to their GTSAM symbols
 map<string,Key> keyTable;
@@ -159,7 +165,7 @@ void add_gaussianFactors(Graph* graph, Eigen::Matrix<double,-1,-1> kernel, int s
 Eigen::MatrixXd init_anchors() {
   Eigen::MatrixXd anchors = MatrixXd::Zero(numSensors,3);
   for (int i=0; i<numSensors; i++) {
-    anchors.row(i) = standard_normal_vector3()*2;
+    anchors.row(i) = standard_normal_vector3()*anchorStart_sigma;
   }
   return anchors;
 }
@@ -206,13 +212,17 @@ int main() {
   init_log();
   Eigen::MatrixXd anchorMatrix = init_anchors();
 
-  Point3 velocity = standard_normal_vector3() * 0.0; // Sets a constant velocity, this will bias the tag movement every time step
-  tag = Anchor( standard_normal_vector3() *2, "1000"); // Set actual tag location, using tag ID to be 1000
+  Point3 velocity = standard_normal_vector3() * velocity_sigma; // Sets a constant velocity, this will bias the tag movement every time step
+  tag = Anchor( standard_normal_vector3() * tagStart_sigma, "1000"); // Set actual tag location, using tag ID to be 1000
 
   Sensor* sensor = getSensor(anchorMatrix);
   auto cameras = list<CameraWrapper*>{getCamera(Pose3(Rot3::RzRyRx(0,0,0), Point3(0,0,-20))),
                                       getCamera(Pose3(Rot3::RzRyRx(0,M_PI/2,0), Point3(-20,0,0)))};
   auto kernel = rbfKernel(gaussianMaxWidth, kernelSigma, kernelLength); // Sigma scales output, length slows oscillation
+  // auto kernel = brownianKernel(gaussianMaxWidth, kernelSigma);
+  
+  write_matrix(kernel, "covariance");
+
 
   ISAM2 isam;
   Graph graph;
@@ -226,15 +236,13 @@ int main() {
     write_log("loop " + to_string(i) + "\n");
 
     keyTable[tag.ID] = X(i); // Sets the tag Key for the current index    
-    tag.location += standard_normal_vector3()*0.1 + velocity; // Move tag
+    tag.location += standard_normal_vector3()*increment_sigma+ velocity; // Move tag
     write_log("tag: " + tag.to_string_());
 
     if (i!=0){
       Point3 prev = estimated_values.at<Point3>(X(i-1)) + (Point3)velocity;
       values.insert(X(i), prev); // Initially assuming uniform tag movement
     } 
-
-    // auto kernel = brownianKernel(gaussianMaxWidth, i, kernelSigma);
 
     write_log("adding factors\n");
     add_rangeFactors(&graph, sensor);

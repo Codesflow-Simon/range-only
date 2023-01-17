@@ -1,7 +1,7 @@
 #include <gtsam/nonlinear/NonlinearFactor.h>
 #include <gtsam/geometry/Point3.h>
 #include <gtsam/inference/Symbol.h>
-
+#include <gtsam/linear/GaussianDensity.h>
 
 using namespace std;
 using namespace gtsam;
@@ -53,4 +53,3 @@ class DistanceFactor: public gtsam::NoiseModelFactorN<Point3, Point3> {
   }
 
 };
-

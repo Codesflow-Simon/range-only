@@ -1,5 +1,27 @@
 #include <math.h>
 #include <Eigen/Dense>
+#include <Eigen/Cholesky>
+
+/**
+ * @brief Returns the covariance given a Cholesky decompositon of the inverse covariance
+ * 
+ * @param R Cholesky of inverse covariance
+ * @return Eigen::Matrix covariance
+ */
+Eigen::MatrixXd inverseCholesky(Eigen::MatrixXd R) {
+  return (R.transpose() * R).inverse();
+}
+
+/**
+ * @brief Returns the covariance given a Cholesky decompositon of the inverse covariance
+ * 
+ * @param R Cholesky of inverse covariance
+ * @return Eigen::Matrix covariance
+ */
+Eigen::MatrixXd cholesky(Eigen::MatrixXd A) {
+  LLT<MatrixXd> R(A);
+  return R.matrixU();
+}
 
 /**
  * @brief function of the RBF kernel for gaussian processes (https://en.wikipedia.org/wiki/Radial_basis_function_kernel)

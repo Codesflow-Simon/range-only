@@ -8,7 +8,6 @@ find_package(GTSAM REQUIRED)
 
 find_package(GTSAMCMakeTools)
 find_package(nlohmann_json)
-find_package(Catch2 REQUIRED)
 
 include_directories(BEFORE "${PROJECT_SOURCE_DIR}")
 

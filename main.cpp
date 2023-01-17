@@ -17,7 +17,6 @@
 #include <gtsam/geometry/Cal3_S2.h>
 #include <gtsam_unstable/nonlinear/FixedLagSmoother.h>
 
-
 using namespace gtsam;
 using namespace std;
 
@@ -38,11 +37,15 @@ const int numSensors=10;
 const int gaussianMaxWidth = 200;
 const double zero_threshold = 1E-12;
 
+FactorIndex factorIndex;
+FactorIndex GPIndex;
+
 // Simulation
 const double increment_sigma = 0.1;
 const double velocity_sigma = 0;
 const double tagStart_sigma = 1;
 const double anchorStart_sigma = 3;
+const double true_error = 0.1;
 
 // Provides a lookup table from sensor-IDs to their GTSAM symbols
 map<string,Key> keyTable;
@@ -52,6 +55,7 @@ auto tagPriorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,4);
 auto distNoise =  gtsam::noiseModel::Isotropic::Sigma(1,0.12);
 auto projNoise = gtsam::noiseModel::Isotropic::Sigma(2,1);
 auto cameraNoise = gtsam::noiseModel::Isotropic::Sigma(6,1.2);
+auto true_noise = gtsam::noiseModel::Isotropic::Sigma(3,0.1);
 
 typedef gtsam::noiseModel::Gaussian GaussianNoise;
 
@@ -97,7 +101,8 @@ void add_rangeFactors(Graph* graph, Sensor* sensor, bool include_a2a=false) {
   // A2a measurements
   if (include_a2a) {
     map<pair<Anchor,Anchor>,double> A2asample = sensor->sampleA2a();
-    sample.merge(A2asample);
+    sample.insert(A2asample.begin(), A2asample.end()); 
+    // sample.merge(A2asample);
   }
   
   for (auto pair : sample) {  // ID-measurement pair from sample
@@ -113,6 +118,7 @@ void add_rangeFactors(Graph* graph, Sensor* sensor, bool include_a2a=false) {
                to_string(pair.second) + "\n Anchor at " + vecToString(anchorPair.second.location) + "\n");
 
     graph->add(factor);
+    factorIndex++;
   }
 }
 
@@ -133,6 +139,7 @@ void add_cameraFactors(Graph* graph, Values* values, list<CameraWrapper*> camera
     Key tagKey = keyTable[tag.ID];
     auto factor = GenericProjectionFactor<Pose3, Point3, Cal3_S2>(measurement, projNoise, C(0), tagKey, camera->getParams());
     graph->add(factor);
+    factorIndex++;
   }
 }
 
@@ -146,16 +153,25 @@ void add_cameraFactors(Graph* graph, Values* values, list<CameraWrapper*> camera
  * @param Velocity will change the mean of the current entry
 */
 void add_gaussianFactors(Graph* graph, Eigen::Matrix<double,-1,-1> kernel, int subject, Point3 velocity = Point3()) {
-  write_log("adding gaussianFactors\n");
-  int kernelIndex = subject >= kernel.rows() ? kernel.rows()-1 : subject;
-
-  for (int i=1; i<=gaussianMaxWidth; i++) {
-    if (kernelIndex-i < 0) break;
-    if (kernel(kernelIndex,kernelIndex-i) > zero_threshold) {
-      auto noise = GaussianNoise::Covariance(Matrix33::Identity()*kernel(kernelIndex,kernelIndex-i));
-      graph->add(BetweenFactor(Symbol('x', subject-i), Symbol('x', subject), velocity, noise));
-    }
+  FastVector<pair<Key, MatrixXd>> terms;
+  terms.resize(subject+1);
+  for (int i=0; i<=subject; i++) {
+    auto keyMatrix = pair<Key, MatrixXd>();
+    keyMatrix.first = X(i);
+    keyMatrix.second = kernel.block(i,0,3,kernel.cols());
+    terms.push_back(keyMatrix);
   }
+  auto zero = Vector(kernel.rows());
+  auto factor = JacobianFactor(terms, zero);
+}
+
+/**
+ * @brief Gets data directly from the simulated tag
+ * @param Graph* graph to write to
+*/
+void add_trueFactors(Graph* graph) {
+  Point3 data = tag.location + standard_normal_vector3() * true_error;
+  graph->addPrior(keyTable[tag.ID], data, true_noise);
 }
 
 /**
@@ -227,6 +243,7 @@ int main() {
   ISAM2 isam;
   Graph graph;
   Values values, estimated_values;
+  FactorIndices remove;
   
   add_priors(&graph, &values, cameras, anchorMatrix);
 
@@ -245,9 +262,10 @@ int main() {
     } 
 
     write_log("adding factors\n");
-    add_rangeFactors(&graph, sensor);
+    // add_rangeFactors(&graph, sensor);
     // add_cameraFactors(&graph, &values, cameras);
-    add_gaussianFactors(&graph, kernel, i, velocity);
+    // add_gaussianFactors(&graph, kernel, i, velocity);
+    add_trueFactors(&graph);
 
     write_log("Optimising\n");
 

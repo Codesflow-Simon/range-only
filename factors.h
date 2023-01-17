@@ -23,7 +23,7 @@ class DistanceFactor: public gtsam::NoiseModelFactorN<Point3, Point3> {
   boost::optional<Eigen::MatrixXd&> H2 = boost::none) 
   const {  
     double distance;
-    distance = (double)(x - y).norm() + 0.0001;
+    distance = (double)(x - y).norm() + 1E-12;
 
     if (H1)
       *H1 = ((x-y)/distance).transpose();
@@ -41,7 +41,7 @@ class DistanceFactor: public gtsam::NoiseModelFactorN<Point3, Point3> {
   const {  
     Vector3 x = x_.translation();
     double distance;
-    distance = (double)(x - y).norm() + 0.0001;
+    distance = (double)(x - y).norm() + 1E-12;
 
     if (H1)
       *H1 = ((x-y)/distance).transpose();

@@ -20,10 +20,10 @@ add_subdirectory(emulator)
 add_executable(main "main.cpp")
 target_link_libraries(main PUBLIC gtsam gtsam_unstable nlohmann_json libs emulator)
 
-set (testing 0)
+set (testing 1)
 if(testing)
+    find_package(Catch2)
     enable_testing()
-
     add_subdirectory(tests)
 endif()
 

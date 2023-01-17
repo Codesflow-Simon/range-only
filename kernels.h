@@ -2,6 +2,8 @@
 #include <Eigen/Dense>
 #include <Eigen/Cholesky>
 
+using namespace Eigen;
+
 /**
  * @brief Returns the covariance given a Cholesky decompositon of the inverse covariance
  * 
@@ -32,7 +34,7 @@ Eigen::MatrixXd cholesky(Eigen::MatrixXd A) {
  * @return double covariance
 */
 double rbfKernelFunction(int a, int b, double sigma, double lengthScale) {
-  return pow(sigma,2) * exp(-pow(abs(a-b),2)/(2*pow(lengthScale,2)));
+  return sigma * sigma * exp(-pow(abs(a-b),2)/(2*pow(lengthScale,2)));
 }
 
 /**
@@ -63,7 +65,7 @@ Eigen::MatrixXd rbfKernel(int size, double sigma, double lengthScale) {
  * @return double covariance
 */
 double brownianKernelFunction(int a, int b, double sigma) {
-  return pow(sigma,2) * min(a, b);
+  return sigma * sigma * min(a, b);
 }
 
 /**
@@ -92,7 +94,7 @@ Eigen::MatrixXd brownianKernel(int size, double sigma) {
  * @return double covariance
 */
 double maternKernelFunction(int d, double p, double v, double sigma) {
-  return pow(sigma,2) * pow(2,1-v)/(gamma(v)) * pow(sqrt(2*v)*d/p,v); // incomplete, need Bessel function
+  return sigma * sigma * pow(2,1-v)/(gamma(v)) * pow(sqrt(2*v)*d/p,v); // incomplete, need Bessel function
 }
 
 /**

@@ -10,12 +10,11 @@
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/nonlinear/Values.h>
 #include <gtsam/sam/RangeFactor.h>
-#include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
 #include <gtsam/geometry/Point3.h>
 #include <gtsam/nonlinear/Marginals.h>
 #include <gtsam/slam/ProjectionFactor.h>
 #include <gtsam/geometry/Cal3_S2.h>
-#include <gtsam_unstable/nonlinear/FixedLagSmoother.h>
+#include <gtsam/linear/JacobianFactor.h>
 
 using namespace gtsam;
 using namespace std;
@@ -153,16 +152,34 @@ void add_cameraFactors(Graph* graph, Values* values, list<CameraWrapper*> camera
  * @param Velocity will change the mean of the current entry
 */
 void add_gaussianFactors(Graph* graph, Eigen::Matrix<double,-1,-1> kernel, int subject, Point3 velocity = Point3()) {
-  FastVector<pair<Key, MatrixXd>> terms;
-  terms.resize(subject+1);
+  FastVector<pair<Key, gtsam::Matrix>> terms(subject+1);
   for (int i=0; i<=subject; i++) {
-    auto keyMatrix = pair<Key, MatrixXd>();
+    auto keyMatrix = pair<Key, gtsam::Matrix>();
     keyMatrix.first = X(i);
-    keyMatrix.second = kernel.block(i,0,3,kernel.cols());
+    auto mat = (Eigen::MatrixXd)kernel.block(i,0,1,kernel.cols());
+    mat.conservativeResize(3, kernel.cols());
+    mat.col(1) = mat.col(0);
+    mat.col(2) = mat.col(0);
+    keyMatrix.second = mat;
     terms.push_back(keyMatrix);
   }
+
   auto zero = Vector(kernel.rows());
-  auto factor = JacobianFactor(terms, zero);
+  auto noise = noiseModel::Isotropic::Sigma(kernel.rows(), 0.1);
+
+  // auto factor = JacobianFactor(terms, zero);
+
+  // Attempt 2
+  KeyVector keys;
+
+
+  // Augument matrix
+  kernel.conservativeResize(kernel.rows(), kernel.cols()+1);
+  kernel.col(kernel.cols()-1) = zero;
+
+  for (int i=0; i<=subject; i++) keys.push_back(X(i));
+  // auto factor = JacobianFactor(keys, kernel);
+
 }
 
 /**

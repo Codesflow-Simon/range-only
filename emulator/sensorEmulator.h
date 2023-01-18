@@ -5,6 +5,8 @@
 #include <random>
 #include <random_tools.h>
 
+#pragma once
+
 using namespace std; 
 using namespace Eigen;
 

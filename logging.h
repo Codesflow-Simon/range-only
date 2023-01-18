@@ -4,6 +4,8 @@
 #include <Eigen/Dense>
 #include "gtsam/inference/Symbol.h"
 
+#pragma once
+
 using namespace std;
 
 ofstream debugLog;

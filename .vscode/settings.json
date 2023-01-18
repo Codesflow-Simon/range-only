@@ -82,5 +82,8 @@
         "matern",
         "Optimising",
         "timestep"
+    ],
+    "cSpell.ignoreWords": [
+        "asample"
     ]
 }

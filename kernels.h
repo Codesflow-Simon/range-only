@@ -2,27 +2,20 @@
 #include <Eigen/Dense>
 #include <Eigen/Cholesky>
 
+#pragma once
+
 using namespace Eigen;
 
 /**
- * @brief Returns the covariance given a Cholesky decompositon of the inverse covariance
+ * @brief Returns the covariance given a Cholesky decomposition of the inverse covariance
  * 
- * @param R Cholesky of inverse covariance
- * @return Eigen::Matrix covariance
+ * @param R Covariance matrix
+ * @return Eigen::Matrix upper Cholesky of inverse covariance
  */
-Eigen::MatrixXd inverseCholesky(Eigen::MatrixXd R) {
-  return (R.transpose() * R).inverse();
-}
-
-/**
- * @brief Returns the covariance given a Cholesky decompositon of the inverse covariance
- * 
- * @param R Cholesky of inverse covariance
- * @return Eigen::Matrix covariance
- */
-Eigen::MatrixXd cholesky(Eigen::MatrixXd A) {
-  LLT<MatrixXd> R(A);
-  return R.matrixU();
+Eigen::MatrixXd inverseCholesky(Eigen::MatrixXd kernel) {
+  LLT<MatrixXd> Cholesky(kernel.inverse());
+  MatrixXd U = Cholesky.matrixU();
+  return U;
 }
 
 /**
@@ -65,7 +58,7 @@ Eigen::MatrixXd rbfKernel(int size, double sigma, double lengthScale) {
  * @return double covariance
 */
 double brownianKernelFunction(int a, int b, double sigma) {
-  return sigma * sigma * std::min(a, b);
+  return sigma * sigma * std::min(a+1, b+1);  // Using 1 indexing to avoid zeros making the matrix singular with zeros in first row
 }
 
 /**

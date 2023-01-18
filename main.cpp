@@ -174,8 +174,8 @@ void add_gaussianFactors(Graph* graph, Eigen::Matrix<double,-1,-1> kernel, int s
   auto zero = Vector(3*(subject+1));
   auto noise = noiseModel::Isotropic::Sigma(3*(subject+1), 0.1);
 
-  auto factor = JacobianFactor<Point3>(terms, zero, noise);
-  graph->add(factor);
+  auto factor = JacobianFactor(terms, zero, noise);
+  // graph->add(factor);
 }
 
 /**

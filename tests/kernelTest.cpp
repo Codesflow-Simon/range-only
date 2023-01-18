@@ -25,7 +25,7 @@ TEST_CASE ("rbfKernel test", "[kernels]") {
     auto kernel = rbfKernel(size, sigma, length);
     for (int i=0; i<size; i++) {
         for (int j=0; j<11; j++) {
-            REQUIRE((kernel(i,j) - sigma * sigma * exp(-pow(abs(a-b),2)/(2*pow(length,2)))) < small);
+            REQUIRE((kernel(i,j) - sigma * sigma * exp(-pow(abs(i-j),2)/(2*pow(length,2)))) < small);
             REQUIRE((kernel(i,j) - rbfKernelFunction(i,j,sigma,length)) < small);
         }
     }

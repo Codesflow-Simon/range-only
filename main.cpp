@@ -15,6 +15,7 @@
 #include <gtsam/slam/ProjectionFactor.h>
 #include <gtsam/geometry/Cal3_S2.h>
 #include <gtsam/linear/JacobianFactor.h>
+#include <Eigen/Cholesky>
 
 using namespace gtsam;
 using namespace std;
@@ -29,11 +30,11 @@ using symbol_shorthand::C;
 Anchor tag;
 
 // Model parameters
-const int samples = 200;
+const int samples = 20;
 const double kernelSigma = 0.1;
 const double kernelLength = 1;
 const int numSensors=10;
-const int gaussianMaxWidth = 200;
+const int gaussianMaxWidth = 20;
 const double zero_threshold = 1E-12;
 
 FactorIndex factorIndex;
@@ -56,7 +57,6 @@ auto projNoise = gtsam::noiseModel::Isotropic::Sigma(2,1);
 auto cameraNoise = gtsam::noiseModel::Isotropic::Sigma(6,1.2);
 auto true_noise = gtsam::noiseModel::Isotropic::Sigma(3,0.1);
 
-typedef gtsam::noiseModel::Gaussian GaussianNoise;
 
 /**
  * @brief Adds priors of the anchor, tag and cameras
@@ -152,34 +152,30 @@ void add_cameraFactors(Graph* graph, Values* values, list<CameraWrapper*> camera
  * @param Velocity will change the mean of the current entry
 */
 void add_gaussianFactors(Graph* graph, Eigen::Matrix<double,-1,-1> kernel, int subject, Point3 velocity = Point3()) {
+  LLT<MatrixXd> Cholesky(kernel);
+  MatrixXd U = Cholesky.matrixU();
+
   FastVector<pair<Key, gtsam::Matrix>> terms(subject+1);
   for (int i=0; i<=subject; i++) {
     auto keyMatrix = pair<Key, gtsam::Matrix>();
     keyMatrix.first = X(i);
-    auto mat = (Eigen::MatrixXd)kernel.block(i,0,1,kernel.cols());
-    mat.conservativeResize(3, kernel.cols());
-    mat.col(1) = mat.col(0);
-    mat.col(2) = mat.col(0);
-    keyMatrix.second = mat;
-    terms.push_back(keyMatrix);
+    MatrixXd mat(3*(subject+1),3);
+    for (int j=0; j<=subject; j++) {
+      double value = U(j,i);
+      Matrix33 block = value * Matrix33::Identity();
+
+      for (int k=0;k<3;k++) mat.row(3*j+k) = block.row(k);
+    }
+    keyMatrix.second = mat; 
+    terms[i] = keyMatrix;
+    cout << mat << endl;
   }
 
-  auto zero = Vector(kernel.rows());
-  auto noise = noiseModel::Isotropic::Sigma(kernel.rows(), 0.1);
+  auto zero = Vector(3*(subject+1));
+  auto noise = noiseModel::Isotropic::Sigma(3*(subject+1), 0.1);
 
-  // auto factor = JacobianFactor(terms, zero);
-
-  // Attempt 2
-  KeyVector keys;
-
-
-  // Augument matrix
-  kernel.conservativeResize(kernel.rows(), kernel.cols()+1);
-  kernel.col(kernel.cols()-1) = zero;
-
-  for (int i=0; i<=subject; i++) keys.push_back(X(i));
-  // auto factor = JacobianFactor(keys, kernel);
-
+  auto factor = JacobianFactor<Point3>(terms, zero, noise);
+  graph->add(factor);
 }
 
 /**
@@ -281,7 +277,7 @@ int main() {
     write_log("adding factors\n");
     // add_rangeFactors(&graph, sensor);
     // add_cameraFactors(&graph, &values, cameras);
-    // add_gaussianFactors(&graph, kernel, i, velocity);
+    add_gaussianFactors(&graph, kernel, i, velocity);
     add_trueFactors(&graph);
 
     write_log("Optimising\n");

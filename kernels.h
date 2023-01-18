@@ -65,7 +65,7 @@ Eigen::MatrixXd rbfKernel(int size, double sigma, double lengthScale) {
  * @return double covariance
 */
 double brownianKernelFunction(int a, int b, double sigma) {
-  return sigma * sigma * min(a, b);
+  return sigma * sigma * std::min(a, b);
 }
 
 /**
@@ -86,7 +86,7 @@ Eigen::MatrixXd brownianKernel(int size, double sigma) {
 } 
 
 /**
- * @brief function of the Matern kernel for gaussian processes (https://math.stackexchange.com/questions/1273437/brownian-motion-and-covariance)
+ * @brief function of the Matern kernel for gaussian processes ()
  * @param int d, distance
  * @param int p, model parameter
  * @param int v, model parameter

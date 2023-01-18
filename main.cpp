@@ -15,6 +15,8 @@
 #include <gtsam/slam/ProjectionFactor.h>
 #include <gtsam/geometry/Cal3_S2.h>
 #include <gtsam/linear/JacobianFactor.h>
+#include <gtsam/nonlinear/LinearContainerFactor.h>
+#include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
 #include <Eigen/Cholesky>
 
 using namespace gtsam;
@@ -175,7 +177,8 @@ void add_gaussianFactors(Graph* graph, Eigen::Matrix<double,-1,-1> kernel, int s
   auto noise = noiseModel::Isotropic::Sigma(3*(subject+1), 0.1);
 
   auto factor = JacobianFactor(terms, zero, noise);
-  // graph->add(factor);
+  auto linearFactor = LinearContainerFactor(factor);
+  graph->add(linearFactor);
 }
 
 /**

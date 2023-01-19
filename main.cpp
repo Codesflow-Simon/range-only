@@ -28,27 +28,26 @@ using symbol_shorthand::L;
 using symbol_shorthand::C;
 
 // Model parameters
-const int samples = 50;
+const int samples = 200;
 const double kernelSigma = 3; // High for RBF, low for Brownian
 const double kernelLength = 1;
-const int numSensors=10;
-const int gaussianMaxWidth = 50;
-const double zero_threshold = 1E-12;
+const int numSensors=6;
+const int gaussianMaxWidth = 200;
 
 // Simulation
 const double increment_sigma = 0.1;
-const double tagStart_sigma = 1;
-const double anchorStart_sigma = 3;
+const double tagStart_sigma = 2;
+const double anchorStart_sigma = 4;
 const double true_error = 0.1;
 
 // Provides a lookup table from sensor-IDs to their GTSAM symbols
 map<string,Key> keyTable;
 
-auto anchorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.11);
+auto anchorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.1);
 auto tagPriorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,4);
-auto distNoise =  gtsam::noiseModel::Isotropic::Sigma(1,0.12);
+auto distNoise =  gtsam::noiseModel::Isotropic::Sigma(1,0.1);
 auto projNoise = gtsam::noiseModel::Isotropic::Sigma(2,1);
-auto cameraNoise = gtsam::noiseModel::Isotropic::Sigma(6,1.2);
+auto cameraNoise = gtsam::noiseModel::Isotropic::Sigma(6,1);
 auto true_noise = gtsam::noiseModel::Isotropic::Sigma(3,0.1);
 
 /**
@@ -109,8 +108,8 @@ int main() {
   Sensor* sensor = getSensor(anchorMatrix);
   keyTable[tag.ID] = X(0);
 
-  auto cameras = list<CameraWrapper*>{getCamera(Pose3(Rot3::RzRyRx(0,0,0), Point3(0,0,-20))),
-                                      getCamera(Pose3(Rot3::RzRyRx(0,M_PI/2,0), Point3(-20,0,0)))};
+  auto cameras = list<CameraWrapper*>{};   // getCamera(Pose3(Rot3::RzRyRx(0,0,0), Point3(0,0,-20))),
+                                           // getCamera(Pose3(Rot3::RzRyRx(0,M_PI/2,0), Point3(-20,0,0)))};
   auto kernel = rbfKernel(gaussianMaxWidth+1, kernelSigma, kernelLength); // Sigma scales output, length slows oscillation
   // auto kernel = brownianKernel(gaussianMaxWidth+1, kernelSigma);
 
@@ -124,7 +123,7 @@ int main() {
   Values values, estimated_values;
   FactorIndices remove;
   
-  add_priors(&graph, &values, anchorMatrix, anchorNoise, cameras, cameraNoise, keyTable[tag.ID], tagPriorNoise);
+  add_priors(&graph, &values, anchorMatrix, anchorNoise, cameras, cameraNoise);
   add_gaussianFactors(&graph, &values, &remove, cholesky);
 
   Eigen::MatrixXd data(samples,9); // Data to export for analysis
@@ -135,6 +134,7 @@ int main() {
     keyTable[tag.ID] = X(i); // Sets the tag Key for the current index    
     tag.location += standard_normal_vector3()*increment_sigma; // Move tag
     write_log("tag: " + tag.to_string_());
+    // values.insert(X(i), Point3(0,0,0));
 
     write_log("adding factors\n");
     add_rangeFactors(&graph, sensor, tag, keyTable, distNoise);
@@ -176,7 +176,6 @@ int main() {
 
   cout << "final tag: " << endl << values.at<Point3>(X(samples-1)) << endl; // Final report to console
   cout << "tag: " << endl << tag.location << endl;
-  cout << "marginal covariance of final position:" << endl << covariance << endl;  
   close_log();
   delete sensor;
   for (auto camera : cameras) delete camera;

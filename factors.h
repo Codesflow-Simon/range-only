@@ -29,7 +29,7 @@ typedef PinholeCamera<Cal3_S2> Camera;
  * @param Eigen::MatrixXd* matrix of anchor positions
 */
 void add_priors(Graph* graph, Values* values, Eigen::MatrixXd anchors, SharedNoiseModel anchorNoise, 
-  list<CameraWrapper*> cameras, SharedNoiseModel cameraNoise, Key tagKey, SharedNoiseModel tagPriorNoise) {
+  list<CameraWrapper*> cameras, SharedNoiseModel cameraNoise) {
   write_log("adding priors\n");
 
   // Anchors
@@ -38,10 +38,6 @@ void add_priors(Graph* graph, Values* values, Eigen::MatrixXd anchors, SharedNoi
     graph->addPrior(Symbol('l', i), (Point3) (anchors.row(i).transpose() + standard_normal_vector3()*0.1), anchorNoise);
     values->insert(Symbol('l', i), (Point3) (anchors.row(i).transpose() + standard_normal_vector3()*0.1));
   }
-
-  // Tag - handled by gaussianFactors
-  // graph->addPrior(tagKey, Point3(0,0,0), tagPriorNoise);
-  // values->insert(tagKey, standard_normal_vector3());
 
   // Cameras
   int i = 0;
@@ -76,8 +72,9 @@ void add_rangeFactors(Graph* graph, Sensor* sensor, Anchor tag, map<string,Key> 
     assert(keyA != 0 && keyB != 0);
 
     auto factor = RangeFactor<Point3>(keyA, keyB, pair.second, distNoise);
+    graph->add(factor);
 
-    write_log("Adding DistanceFactor " + keyToString(keyA) + " and " + keyToString(keyB) + " with measurement " + 
+    write_log("Added DistanceFactor " + keyToString(keyA) + " and " + keyToString(keyB) + " with measurement " + 
                to_string(pair.second) + "\n Anchor at " + vecToString(anchorPair.second.location) + "\n");
   }
 }

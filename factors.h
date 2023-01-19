@@ -17,53 +17,6 @@ using namespace gtsam;
 typedef NonlinearFactorGraph Graph;
 typedef PinholeCamera<Cal3_S2> Camera;
 
-// This is identical to RangeFactor
-class DistanceFactor: public gtsam::NoiseModelFactorN<Point3, Point3> {
-  private:
-
-  double measurement;
-
-  public:
-    
-  DistanceFactor (Key a, Key b, double meas, SharedNoiseModel model) :
-    NoiseModelFactorN<Point3, Point3>(model, a, b), measurement(meas) {}
-  
-  gtsam::Vector evaluateError(
-  const Point3& x, const Point3& y, 
-  boost::optional<Eigen::MatrixXd&> H1 = boost::none,  
-  boost::optional<Eigen::MatrixXd&> H2 = boost::none) 
-  const {  
-    double distance;
-    distance = (double)(x - y).norm() + 1E-12;
-
-    if (H1)
-      *H1 = ((x-y)/distance).transpose();
-
-    if (H2)
-      *H2 = ((y-x)/distance).transpose();
-
-    return Vector1(distance - measurement);
-  }
-
-  gtsam::Vector evaluateError(
-  const Pose3& x_, const Point3& y, 
-  boost::optional<Eigen::MatrixXd&> H1 = boost::none,  
-  boost::optional<Eigen::MatrixXd&> H2 = boost::none) 
-  const {  
-    Vector3 x = x_.translation();
-    double distance;
-    distance = (double)(x - y).norm() + 1E-12;
-
-    if (H1)
-      *H1 = ((x-y)/distance).transpose();
-
-    if (H2)
-      *H2 = ((y-x)/distance).transpose();
-
-    return Vector1(distance - measurement);
-  }
-
-};
 
 /**********************GRAPH ADDERS**************************/
 
@@ -121,7 +74,7 @@ void add_rangeFactors(Graph* graph, Sensor* sensor, Anchor tag, map<string,Key> 
     Key keyB = keyTable[anchorPair.second.ID];
     assert(keyA != 0 && keyB != 0);
 
-    auto factor = DistanceFactor (keyA, keyB, pair.second, distNoise);
+    auto factor = RangeFactor<Point3>(keyA, keyB, pair.second, distNoise);
 
     write_log("Adding DistanceFactor " + keyToString(keyA) + " and " + keyToString(keyB) + " with measurement " + 
                to_string(pair.second) + "\n Anchor at " + vecToString(anchorPair.second.location) + "\n");
@@ -149,7 +102,7 @@ void add_cameraFactors(Graph* graph, Values* values, list<CameraWrapper*> camera
   }
 }
 
-JacobianFactor makeGaussianFactor(Eigen::Matrix<double,-1,-1> cholesky) {
+JacobianFactor makeGaussianFactor(Eigen::Matrix<double,-1,-1> cholesky, double noiseModelCoef=0.1) {
   FastVector<pair<Key, gtsam::Matrix>> terms(cholesky.rows());
   for (int i=0; i<cholesky.rows(); i++) {
     auto keyMatrix = pair<Key, gtsam::Matrix>();
@@ -166,7 +119,6 @@ JacobianFactor makeGaussianFactor(Eigen::Matrix<double,-1,-1> cholesky) {
   }
 
   auto zero = Vector::Zero(3*cholesky.rows());
-
   auto factor = JacobianFactor(terms, zero); // No noise (identity), baked into terms
   return factor;
 }

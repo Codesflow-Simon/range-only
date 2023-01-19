@@ -119,6 +119,8 @@ class SensorEmulator {
       return anchors.size();
     }
     
+    // ---- Can make rest of class into pure virtual ----
+
     /**
      * @brief Samples the system given a tag
      * 

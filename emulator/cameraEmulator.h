@@ -22,21 +22,20 @@ typedef PinholeCamera<Cal3_S2> Camera;
 /**
  * @brief a generic template for both the camera emulator and physical camera
 */
-// class CameraWrapper {
-//   protected:
-//     Camera* camera;
-//     Cal3_S2::shared_ptr params;
+class CameraWrapper {
+  protected:
+    Camera* camera;
+    Cal3_S2::shared_ptr params;
 
-//   public:
+  public:
 
-//     virtual Camera* getCamera() {return camera;}
-//     virtual Cal3_S2::shared_ptr  getParams() {return params;}
+    virtual Camera* getCamera() = 0;
+    virtual Cal3_S2::shared_ptr  getParams() = 0;
 
-//     virtual Point2 sample(Point3 tag);
-//     virtual ~CameraWrapper();
-// };
+    virtual Point2 sample(Point3 tag) = 0;
+};
 
-class CameraEmulator {
+class CameraEmulator : public CameraWrapper {
   protected:
     Camera* camera;
     Cal3_S2::shared_ptr params;
@@ -101,5 +100,3 @@ class CameraEmulator {
       delete camera;
     }
 };
-
-typedef CameraEmulator CameraWrapper;

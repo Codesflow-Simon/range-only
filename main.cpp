@@ -27,8 +27,6 @@ using symbol_shorthand::X;
 using symbol_shorthand::L;
 using symbol_shorthand::C;
 
-Anchor tag;
-
 // Model parameters
 const int samples = 50;
 const double kernelSigma = 3; // High for RBF, low for Brownian
@@ -39,7 +37,6 @@ const double zero_threshold = 1E-12;
 
 // Simulation
 const double increment_sigma = 0.1;
-const double velocity_sigma = 0;
 const double tagStart_sigma = 1;
 const double anchorStart_sigma = 3;
 const double true_error = 0.1;
@@ -74,10 +71,7 @@ Eigen::MatrixXd init_anchors() {
 Sensor* getSensor(Eigen::MatrixXd anchors) {
   SensorEmulator* sensor = new SensorEmulator();
 
-  assert(tag.ID != "");
   assert(anchors.size()>0);
-
-  keyTable[tag.ID] = X(0);
 
   for (int i=0; i<numSensors; i++)  {
     string id = to_string(i);
@@ -106,12 +100,15 @@ CameraWrapper* getCamera(Pose3 pose) {
 
 int main() {
   init_log();
+
   Eigen::MatrixXd anchorMatrix = init_anchors();
 
-  Point3 velocity = standard_normal_vector3() * velocity_sigma; // Sets a constant velocity, this will bias the tag movement every time step
+  Anchor tag;
   tag = Anchor( standard_normal_vector3() * tagStart_sigma, "1000"); // Set actual tag location, using tag ID to be 1000
 
   Sensor* sensor = getSensor(anchorMatrix);
+  keyTable[tag.ID] = X(0);
+
   auto cameras = list<CameraWrapper*>{getCamera(Pose3(Rot3::RzRyRx(0,0,0), Point3(0,0,-20))),
                                       getCamera(Pose3(Rot3::RzRyRx(0,M_PI/2,0), Point3(-20,0,0)))};
   auto kernel = rbfKernel(gaussianMaxWidth+1, kernelSigma, kernelLength); // Sigma scales output, length slows oscillation
@@ -130,14 +127,13 @@ int main() {
   add_priors(&graph, &values, anchorMatrix, anchorNoise, cameras, cameraNoise, keyTable[tag.ID], tagPriorNoise);
   add_gaussianFactors(&graph, &values, &remove, cholesky);
 
-
   Eigen::MatrixXd data(samples,9); // Data to export for analysis
 
   for (int i=0; i<samples; i++) {
     write_log("loop " + to_string(i) + "\n");
 
     keyTable[tag.ID] = X(i); // Sets the tag Key for the current index    
-    tag.location += standard_normal_vector3()*increment_sigma+ velocity; // Move tag
+    tag.location += standard_normal_vector3()*increment_sigma; // Move tag
     write_log("tag: " + tag.to_string_());
 
     write_log("adding factors\n");

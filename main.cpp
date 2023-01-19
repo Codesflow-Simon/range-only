@@ -14,6 +14,7 @@
 #include <gtsam/nonlinear/Marginals.h>
 #include <gtsam/geometry/Cal3_S2.h>
 #include <gtsam/linear/JacobianFactor.h>
+#include <gtsam/sam/RangeFactor.h>
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
 #include <Eigen/Cholesky>
 
@@ -31,7 +32,7 @@ Anchor tag;
 
 // Model parameters
 const int samples = 50;
-const double kernelSigma = 0.5; // High for RBF, low for Brownian
+const double kernelSigma = 3; // High for RBF, low for Brownian
 const double kernelLength = 1;
 const int numSensors=10;
 const int gaussianMaxWidth = 50;

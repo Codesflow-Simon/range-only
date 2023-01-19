@@ -31,8 +31,8 @@ Anchor tag;
 
 // Model parameters
 const int samples = 50;
-const double kernelSigma = 1; // High for RBF, low for Brownian
-const double kernelLength = 2;
+const double kernelSigma = 0.5; // High for RBF, low for Brownian
+const double kernelLength = 1;
 const int numSensors=10;
 const int gaussianMaxWidth = 50;
 const double zero_threshold = 1E-12;
@@ -114,8 +114,8 @@ int main() {
   Sensor* sensor = getSensor(anchorMatrix);
   auto cameras = list<CameraWrapper*>{getCamera(Pose3(Rot3::RzRyRx(0,0,0), Point3(0,0,-20))),
                                       getCamera(Pose3(Rot3::RzRyRx(0,M_PI/2,0), Point3(-20,0,0)))};
-  auto kernel = rbfKernel(gaussianMaxWidth, kernelSigma, kernelLength); // Sigma scales output, length slows oscillation
-  // auto kernel = brownianKernel(gaussianMaxWidth, kernelSigma);
+  auto kernel = rbfKernel(gaussianMaxWidth+1, kernelSigma, kernelLength); // Sigma scales output, length slows oscillation
+  // auto kernel = brownianKernel(gaussianMaxWidth+1, kernelSigma);
 
   auto cholesky = inverseCholesky(kernel);
   

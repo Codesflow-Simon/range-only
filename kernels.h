@@ -27,7 +27,7 @@ Eigen::MatrixXd inverseCholesky(Eigen::MatrixXd kernel) {
  * @return double covariance
 */
 double rbfKernelFunction(int a, int b, double sigma, double lengthScale) {
-  return sigma * sigma * exp(-pow(abs(a-b),2)/(2*pow(lengthScale,2)));
+  return sigma * sigma * exp(-pow(abs(a-b),2)/(2*lengthScale*lengthScale));
 }
 
 /**
@@ -38,7 +38,7 @@ double rbfKernelFunction(int a, int b, double sigma, double lengthScale) {
  * @return Eigen::MatrixXd kernel matrix
 */
 Eigen::MatrixXd rbfKernel(int size, double sigma, double lengthScale) {
-  int matSize = size+1; //Including diagonal
+  int matSize = size; //Including diagonal
   auto mat = Eigen::MatrixXd(matSize,matSize); 
   for (int i=0; i<matSize; i++) {
     for (int j=0; j<matSize; j++) {
@@ -68,7 +68,7 @@ double brownianKernelFunction(int a, int b, double sigma) {
  * @return Eigen::MatrixXd kernel matrix
 */
 Eigen::MatrixXd brownianKernel(int size, double sigma) {
-  int matSize = size+1; //Including diagonal
+  int matSize = size; //Including diagonal
   auto mat = Eigen::MatrixXd(matSize,matSize); 
   for (int i=0; i<matSize; i++) {
     for (int j=0; j<matSize; j++) {

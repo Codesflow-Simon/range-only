@@ -138,8 +138,6 @@ class SensorEmulator {
       return output;
     }
 
-  
-
     /**
      * @brief Samples the system given a tag
      * 

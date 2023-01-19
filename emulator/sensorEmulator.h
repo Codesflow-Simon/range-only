@@ -74,17 +74,17 @@ ostream& operator<<(std::ostream &strm, const Anchor &a) {
 /**
  * @brief a generic template for both the sensor emulator and physical sensors
 */
-// class Sensor {
-//     public:
-//         virtual map<pair<Anchor,Anchor>,double> sample(Anchor tag);
-//         virtual map<pair<Anchor,Anchor>,double> sampleA2a();
-// };
+class Sensor {
+    public:
+      virtual map<pair<Anchor,Anchor>,double> sample(Anchor tag) = 0;
+      virtual map<pair<Anchor,Anchor>,double> sampleA2a() = 0;
+};
 
 /**
  * @brief Emulates a tag-anchor environment
  * 
  */
-class SensorEmulator {
+class SensorEmulator : public Sensor {
   private:
     list<Anchor> anchors;
     double error = 0.1;
@@ -119,15 +119,13 @@ class SensorEmulator {
       return anchors.size();
     }
     
-    // ---- Can make rest of class into pure virtual ----
-
     /**
      * @brief Samples the system given a tag
      * 
      * @param tag 
      * @return vector<double> 
      */
-    map<pair<Anchor,Anchor>,double> sample(Anchor tag) {
+     map<pair<Anchor,Anchor>,double> sample(Anchor tag) override {
       map< pair<Anchor,Anchor> , double > output;
 
       for (Anchor anchor : anchors) {
@@ -146,7 +144,7 @@ class SensorEmulator {
      * @param tag 
      * @return vector<double> 
      */
-    map<pair<Anchor,Anchor>,double> sampleA2a() {
+    map<pair<Anchor,Anchor>,double> sampleA2a() override {
       map<pair<Anchor,Anchor>,double> output;
       
       for (auto it = anchors.begin(); it != anchors.end(); ++it) {
@@ -164,5 +162,3 @@ class SensorEmulator {
       return output;
     }
 };
-
-typedef SensorEmulator Sensor;

@@ -2,6 +2,7 @@
 #include <gtsam/geometry/Point3.h>
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
+#include <gtsam/sam/RangeFactor.h>
 #include <gtsam/geometry/Cal3_S2.h>
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/slam/ProjectionFactor.h>

@@ -14,10 +14,10 @@ double small = 1E-8;
 TEST_CASE ("DistanceFactortest", "[factors]") {
     double measurement = 2.71;
 
-    auto factorA = DistanceFactor(keyA, keyB, measurement, model);
-    auto factorB = DistanceFactor(keyA, keyB, measurement, model);
+    auto factorA = RangeFactor<Point3>(keyA, keyB, measurement, model);
+    auto factorB = RangeFactor<Point3>(keyA, keyB, measurement, model);
 
-    auto factorZero = DistanceFactor(keyA, keyB, 0, model);
+    auto factorZero = RangeFactor<Point3>(keyA, keyB, 0, model);
 
     Point3 x = Point3(1,-1,1.5);
     Point3 y = Point3(-3.2,-0.2,0.8);

@@ -9,7 +9,6 @@
 #include <gtsam/linear/GaussianFactorGraph.h>
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/nonlinear/Values.h>
-#include <gtsam/sam/RangeFactor.h>
 #include <gtsam/geometry/Point3.h>
 #include <gtsam/nonlinear/Marginals.h>
 #include <gtsam/geometry/Cal3_S2.h>

@@ -15,24 +15,33 @@
 #include <gtsam/linear/JacobianFactor.h>
 #include <gtsam/sam/RangeFactor.h>
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
+
 #include <Eigen/Cholesky>
+#include <chrono>
+
+using namespace std::chrono;
+
+// After function call
+auto stop = high_resolution_clock::now();
+
 
 using namespace gtsam;
 using namespace std;
 
 typedef NonlinearFactorGraph Graph;
 typedef PinholeCamera<Cal3_S2> Camera;
+typedef chrono::time_point<chrono::high_resolution_clock> Time;
 
 using symbol_shorthand::X;
 using symbol_shorthand::L;
 using symbol_shorthand::C;
 
 // Model parameters
-const int samples = 200;
+const int samples = 400;
 const double kernelSigma = 3; // High for RBF, low for Brownian
 const double kernelLength = 1;
-const int numSensors=6;
-const int gaussianMaxWidth = 200;
+const int numSensors=10;
+const int gaussianMaxWidth = 400;
 
 // Simulation
 const double increment_sigma = 0.1;
@@ -48,6 +57,7 @@ auto tagPriorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,4);
 auto distNoise =  gtsam::noiseModel::Isotropic::Sigma(1,0.1);
 auto projNoise = gtsam::noiseModel::Isotropic::Sigma(2,1);
 auto cameraNoise = gtsam::noiseModel::Isotropic::Sigma(6,1);
+auto betweenNoise = gtsam::noiseModel::Isotropic::Sigma(3,0.1);
 auto true_noise = gtsam::noiseModel::Isotropic::Sigma(3,0.1);
 
 /**
@@ -126,10 +136,14 @@ int main() {
   add_priors(&graph, &values, anchorMatrix, anchorNoise, cameras, cameraNoise);
   add_gaussianFactors(&graph, &values, &remove, cholesky);
 
-  Eigen::MatrixXd data(samples,9); // Data to export for analysis
+  Time start;
+  Time stop;
+
+  Eigen::MatrixXd data(samples,10); // Data to export for analysis
 
   for (int i=0; i<samples; i++) {
     write_log("loop " + to_string(i) + "\n");
+    start = chrono::high_resolution_clock::now();
 
     keyTable[tag.ID] = X(i); // Sets the tag Key for the current index    
     tag.location += standard_normal_vector3()*increment_sigma; // Move tag
@@ -138,12 +152,14 @@ int main() {
 
     write_log("adding factors\n");
     add_rangeFactors(&graph, sensor, tag, keyTable, distNoise);
-    // add_cameraFactors(&graph, &values, cameras, tag, keyTable[tag.ID], projNoise);
+    if (i>1) add_naiveBetweenFactors(&graph, X(i-1), X(i), betweenNoise);
+    // add_cameraFactors(&graph, cameras, tag, keyTable[tag.ID], projNoise);
     // add_trueFactors(&graph, tag, keyTable[tag.ID], true_error, true_noise);
 
     write_log("Optimising\n");
 
-    isam.update(graph, values, remove);
+    auto results = isam.update(graph, values, remove);
+    results.print();
 
     graph.resize(0);
     values.clear();
@@ -152,6 +168,8 @@ int main() {
     data(i,6) = tag.location.x();
     data(i,7) = tag.location.y();
     data(i,8) = tag.location.z();
+    stop = chrono::high_resolution_clock::now();
+    data(i,9) = duration_cast<chrono::milliseconds>(stop-start).count();
   }
   /*--------- END SAMPLE LOOP ---------*/
   

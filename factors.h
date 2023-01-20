@@ -112,7 +112,6 @@ void add_cameraFactors(Graph* graph, list<CameraWrapper*> cameras, Anchor tag, K
     write_log("Camera " + vecToString(camera->getCamera()->pose().translation()));
     write_log("Measured: (" + to_string(measurement.x()) + ", " + to_string(measurement.y()) + ")\n\n");
 
-    Key tagKey = tagKey;
     auto factor = GenericProjectionFactor<Pose3, Point3, Cal3_S2>(measurement, projNoise, Symbol('c', i++), tagKey, camera->getParams());
     graph->add(factor);
   }

@@ -12,7 +12,6 @@
 #include <gtsam/geometry/Point3.h>
 #include <gtsam/nonlinear/Marginals.h>
 #include <gtsam/geometry/Cal3_S2.h>
-#include <gtsam/linear/JacobianFactor.h>
 #include <gtsam/sam/RangeFactor.h>
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
 
@@ -37,16 +36,17 @@ using symbol_shorthand::L;
 using symbol_shorthand::C;
 
 // Model parameters
-const int samples = 400;
+const int samples = 100;
 const double kernelSigma = 3; // High for RBF, low for Brownian
 const double kernelLength = 1;
 const int numSensors=10;
-const int gaussianMaxWidth = 400;
+const int gaussianMaxWidth = samples;
 
 // Simulation
 const double increment_sigma = 0.1;
 const double tagStart_sigma = 2;
 const double anchorStart_sigma = 4;
+const double anchorError = 0.1;
 const double true_error = 0.1;
 
 // Provides a lookup table from sensor-IDs to their GTSAM symbols
@@ -133,7 +133,7 @@ int main() {
   Values values, estimated_values;
   FactorIndices remove;
   
-  add_priors(&graph, &values, anchorMatrix, anchorNoise, cameras, cameraNoise);
+  add_priors(&graph, &values, anchorMatrix, anchorNoise, cameras, cameraNoise, anchorError);
   add_gaussianFactors(&graph, &values, &remove, cholesky);
 
   Time start;
@@ -151,15 +151,15 @@ int main() {
     // values.insert(X(i), Point3(0,0,0));
 
     write_log("adding factors\n");
-    add_rangeFactors(&graph, sensor, tag, keyTable, distNoise);
-    if (i>1) add_naiveBetweenFactors(&graph, X(i-1), X(i), betweenNoise);
+    if (i==0) add_rangeFactors(&graph, sensor, tag, keyTable, distNoise, true);
+    else add_rangeFactors(&graph, sensor, tag, keyTable, distNoise);
+    // if (i>1) add_naiveBetweenFactors(&graph, X(i-1), X(i), betweenNoise);
     // add_cameraFactors(&graph, cameras, tag, keyTable[tag.ID], projNoise);
     // add_trueFactors(&graph, tag, keyTable[tag.ID], true_error, true_noise);
 
     write_log("Optimising\n");
 
     auto results = isam.update(graph, values, remove);
-    results.print();
 
     graph.resize(0);
     values.clear();
@@ -174,6 +174,7 @@ int main() {
   /*--------- END SAMPLE LOOP ---------*/
   
   values = isam.calculateBestEstimate();
+  write_matrix(isam.getFactorsUnsafe().linearize(values)->jacobian().first, "jacobian");
 
   for (int i=0; i<samples; i++) {
     Point3 estimate = values.at<Point3>(X(i));

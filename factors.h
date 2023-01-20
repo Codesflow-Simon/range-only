@@ -32,14 +32,14 @@ typedef PinholeCamera<Cal3_S2> Camera;
  * @param SharedNoiseModel camera noise model
 */
 void add_priors(Graph* graph, Values* values, Eigen::MatrixXd anchors, SharedNoiseModel anchorNoise, 
-  list<CameraWrapper*> cameras, SharedNoiseModel cameraNoise) {
+  list<CameraWrapper*> cameras, SharedNoiseModel cameraNoise, double anchorError=0.1) {
   write_log("adding priors\n");
 
   // Anchors
   for (int i=0; i<anchors.rows(); i++) {
     write_log("adding anchor" + to_string(i) + "\n" );
-    graph->addPrior(Symbol('l', i), (Point3) (anchors.row(i).transpose() + standard_normal_vector3()*0.1), anchorNoise);
-    values->insert(Symbol('l', i), (Point3) (anchors.row(i).transpose() + standard_normal_vector3()*0.1));
+    graph->addPrior(Symbol('l', i), (Point3) (anchors.row(i).transpose() + standard_normal_vector3()*anchorError), anchorNoise);
+    values->insert(Symbol('l', i), (Point3) (anchors.row(i).transpose() + standard_normal_vector3()*anchorError));
   }
 
   // Cameras

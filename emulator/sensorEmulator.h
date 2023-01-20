@@ -151,6 +151,7 @@ class SensorEmulator : public Sensor {
           for (auto itr = list<Anchor>::iterator(it); itr != anchors.end(); ++itr) {
             Anchor anchorA = *it;
             Anchor anchorB = *itr;
+            if (anchorA == anchorB) continue;
 
             pair<Anchor,Anchor> anchorTagPair(anchorA, anchorB);
 

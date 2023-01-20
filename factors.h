@@ -7,6 +7,7 @@
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/slam/ProjectionFactor.h>
 #include <gtsam/nonlinear/LinearContainerFactor.h>
+#include <gtsam/slam/BetweenFactor.h>
 
 #include "cameraEmulator.h"
 #include "sensorEmulator.h"
@@ -25,8 +26,10 @@ typedef PinholeCamera<Cal3_S2> Camera;
  * @brief Adds priors of the anchor, tag and cameras
  * @param Graph* graph to write too
  * @param Values* values to write too
- * @param list<CameraWrapper*> just of cameras
  * @param Eigen::MatrixXd* matrix of anchor positions
+ * @param SharedNoiseModel anchor noise model
+ * @param list<CameraWrapper*> just of cameras
+ * @param SharedNoiseModel camera noise model
 */
 void add_priors(Graph* graph, Values* values, Eigen::MatrixXd anchors, SharedNoiseModel anchorNoise, 
   list<CameraWrapper*> cameras, SharedNoiseModel cameraNoise) {
@@ -51,6 +54,9 @@ void add_priors(Graph* graph, Values* values, Eigen::MatrixXd anchors, SharedNoi
  * @brief Adds range factors between sensors to the provided graph
  * @param Graph* graph graph to write too
  * @param Sensor* sensor that makes measurements to write too
+ * @param Anchor tag to get location
+ * @param map<string,Key> Anchor-key map
+ * @param SharedNoiseModel noiseModel
  * @param bool include anchor to anchor (a2a) measurements, this improves accuracy of the location of the anchors, but only need to be done once
 */
 void add_rangeFactors(Graph* graph, Sensor* sensor, Anchor tag, map<string,Key> keyTable, SharedNoiseModel distNoise, bool include_a2a=false) {
@@ -80,12 +86,24 @@ void add_rangeFactors(Graph* graph, Sensor* sensor, Anchor tag, map<string,Key> 
 }
 
 /**
+ * @brief Adds betweenFactor between most recent tag measurements
+ * @param Graph* graph graph to write too
+ * @param Key previous tag key
+ * @param Key this tag key
+ * @param SharedNoiseModel noise mode;
+*/
+void add_naiveBetweenFactors (Graph* graph, Key prevTag, Key tag, SharedNoiseModel betweenNoise) {
+  graph->add(BetweenFactor<Point3>(prevTag, tag, Point3(0,0,0), betweenNoise));
+}
+
+/**
  * @brief Adds projection factors between the tag and camera to the provided graph
  * @param Graph* graph graph to write too
- * @param camera* camera that makes measurements to write too
- * @param Cal3_S2::shared_ptr camera calibration
+ * @param Anchor tag
+ * @param Key key of the tag
+ * @param SharedNoiseModel noise model
 */
-void add_cameraFactors(Graph* graph, Values* values, list<CameraWrapper*> cameras, Anchor tag, Key tagKey, SharedNoiseModel projNoise) {
+void add_cameraFactors(Graph* graph, list<CameraWrapper*> cameras, Anchor tag, Key tagKey, SharedNoiseModel projNoise) {
   write_log("adding GenericProjectionFactors\n");
   int i=0;
   for (auto camera : cameras) {
@@ -100,6 +118,11 @@ void add_cameraFactors(Graph* graph, Values* values, list<CameraWrapper*> camera
   }
 }
 
+/**
+ * @brief creates a gaussian process prior
+ * @param Matrix cholesky, Cholesky decomposition of inverse covariance
+ * @param double coefficient for diagonal of noise model
+*/
 JacobianFactor makeGaussianFactor(Eigen::Matrix<double,-1,-1> cholesky, double noiseModelCoef=0.1) {
   FastVector<pair<Key, gtsam::Matrix>> terms(cholesky.rows());
   for (int i=0; i<cholesky.rows(); i++) {
@@ -124,10 +147,10 @@ JacobianFactor makeGaussianFactor(Eigen::Matrix<double,-1,-1> cholesky, double n
 /**
  * @brief Creates a gaussian process prior for variables in the X(t) chain. Takes the (upper) cholesky of the inverse covariance matrix. 
  * This matrix should represent the kernel in one dimension, this function copies it into three dimensions.
- * @param Graph* graph to write dimension
+ * @param Graph* graph to write 
+ * @param Values* values to write to
+ * @param FactorIndices* remove, add factors to remove
  * @param Eigen::Matrix<double,-1,-1>  (upper) cholesky of the inverse covariance matrix for one dimension.
- * @param int subject what row of the matrix need to be written
- * @param Velocity will change the mean of the current entry
 */
 void add_gaussianFactors(Graph* graph, Values* values, FactorIndices* remove, Eigen::Matrix<double,-1,-1> cholesky) {
 
@@ -144,6 +167,10 @@ void add_gaussianFactors(Graph* graph, Values* values, FactorIndices* remove, Ei
 /**
  * @brief Gets data directly from the simulated tag
  * @param Graph* graph to write to
+ * @param Anchor tag, to get location
+ * @param Key key of tag
+ * @param error, error to introduce to model
+ * @param SharedNoiseModel noise model
 */
 void add_trueFactors(Graph* graph, Anchor tag, Key tagKey, double error, SharedNoiseModel true_noise) {
   Point3 data = tag.location + standard_normal_vector3() * error;

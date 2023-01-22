@@ -15,14 +15,13 @@
 #include <gtsam/sam/RangeFactor.h>
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
 
+#include <fstream>
+#include <nlohmann/json.hpp>
+
 #include <Eigen/Cholesky>
 #include <chrono>
 
 using namespace std::chrono;
-
-// After function call
-auto stop = high_resolution_clock::now();
-
 
 using namespace gtsam;
 using namespace std;
@@ -30,24 +29,14 @@ using namespace std;
 typedef NonlinearFactorGraph Graph;
 typedef PinholeCamera<Cal3_S2> Camera;
 typedef chrono::time_point<chrono::high_resolution_clock> Time;
+typedef nlohmann::json json;
 
 using symbol_shorthand::X;
 using symbol_shorthand::L;
 using symbol_shorthand::C;
 
 // Model parameters
-const int samples = 100;
-const double kernelSigma = 3; // High for RBF, low for Brownian
-const double kernelLength = 1;
-const int numSensors=10;
-const int gaussianMaxWidth = samples;
-
-// Simulation
-const double increment_sigma = 0.1;
-const double tagStart_sigma = 2;
-const double anchorStart_sigma = 4;
-const double anchorError = 0.1;
-const double true_error = 0.1;
+json parameters;
 
 // Provides a lookup table from sensor-IDs to their GTSAM symbols
 map<string,Key> keyTable;
@@ -65,9 +54,9 @@ auto true_noise = gtsam::noiseModel::Isotropic::Sigma(3,0.1);
  * @return Eigen::MatrixXd matrix of the anchors positions
  */
 Eigen::MatrixXd init_anchors() {
-  Eigen::MatrixXd anchors = MatrixXd::Zero(numSensors,3);
-  for (int i=0; i<numSensors; i++) {
-    anchors.row(i) = standard_normal_vector3()*anchorStart_sigma;
+  Eigen::MatrixXd anchors = MatrixXd::Zero(parameters["numSensors"],3);
+  for (int i=0; i<parameters["numSensors"]; i++) {
+    anchors.row(i) = standard_normal_vector3()*parameters["anchorStart_sigma"];
   }
   return anchors;
 }
@@ -82,7 +71,7 @@ Sensor* getSensor(Eigen::MatrixXd anchors) {
 
   assert(anchors.size()>0);
 
-  for (int i=0; i<numSensors; i++)  {
+  for (int i=0; i<parameters["numSensors"]; i++)  {
     string id = to_string(i);
 
     keyTable[id] = L(i);
@@ -109,19 +98,21 @@ CameraWrapper* getCamera(Pose3 pose) {
 
 int main() {
   init_log();
+  std::ifstream f("../parameters.json");
+  parameters = json::parse(f);
 
   Eigen::MatrixXd anchorMatrix = init_anchors();
 
   Anchor tag;
-  tag = Anchor( standard_normal_vector3() * tagStart_sigma, "1000"); // Set actual tag location, using tag ID to be 1000
+  tag = Anchor( standard_normal_vector3() * parameters["tagStart_sigma"], "1000"); // Set actual tag location, using tag ID to be 1000
 
   Sensor* sensor = getSensor(anchorMatrix);
   keyTable[tag.ID] = X(0);
 
   auto cameras = list<CameraWrapper*>{getCamera(Pose3(Rot3::RzRyRx(0,0     ,0), Point3(0,0,-20))),
                                       getCamera(Pose3(Rot3::RzRyRx(0,M_PI/2,0), Point3(-20,0,0)))};
-  auto kernel = rbfKernel(gaussianMaxWidth+1, kernelSigma, kernelLength);
-  // auto kernel = brownianKernel(gaussianMaxWidth+1, kernelSigma);
+  auto kernel = rbfKernel(parameters["gaussianMaxWidth"], parameters["kernelSigma"], parameters["kernelLength"]);
+  // auto kernel = brownianKernel(parameters["gaussianMaxWidth"], kernelSigma);
 
   auto cholesky = inverseCholesky(kernel);
   
@@ -132,30 +123,35 @@ int main() {
   Graph graph;
   Values values, estimated_values;
   FactorIndices remove;
+
+  int factorIndex;
+  int GPIndex;
   
-  add_priors(&graph, &values, anchorMatrix, anchorNoise, cameras, cameraNoise, anchorError);
-  add_gaussianFactors(&graph, &values, &remove, cholesky);
+  add_priors(&graph, &values, anchorMatrix, anchorNoise, cameras, cameraNoise, &factorIndex, parameters["anchorError"]);
+
+  GPIndex = factorIndex; 
+  add_gaussianFactors(&graph, &values, &remove, cholesky, &factorIndex);
 
   Time start;
   Time stop;
 
-  Eigen::MatrixXd data(samples,10); // Data to export for analysis
+  Eigen::MatrixXd data((int)parameters["samples"],10); // Data to export for analysis
 
-  for (int i=0; i<samples; i++) {
+  for (int i=0; i<parameters["samples"]; i++) {
     write_log("loop " + to_string(i) + "\n");
     start = chrono::high_resolution_clock::now();
 
     keyTable[tag.ID] = X(i); // Sets the tag Key for the current index    
-    tag.location += standard_normal_vector3()*increment_sigma; // Move tag
+    tag.location += standard_normal_vector3()*parameters["increment_sigma"]; // Move tag
     write_log("tag: " + tag.to_string_());
 
     write_log("adding factors\n");
-    if (i==0) add_rangeFactors(&graph, sensor, tag, keyTable, distNoise, true);
-    else add_rangeFactors(&graph, sensor, tag, keyTable, distNoise);
-    add_cameraFactors(&graph, cameras, tag, X(i), projNoise);
+    if (i==0) add_rangeFactors(&graph, sensor, tag, keyTable, distNoise, &factorIndex ,true);
+    else add_rangeFactors(&graph, sensor, tag, keyTable, distNoise, &factorIndex);
+    add_cameraFactors(&graph, cameras, tag, X(i), projNoise, &factorIndex);
 
-    // if (i>1) add_naiveBetweenFactors(&graph, X(i-1), X(i), betweenNoise);  
-    // add_trueFactors(&graph, tag, keyTable[tag.ID], true_error, true_noise);
+    // if (i>1) add_naiveBetweenFactors(&graph, X(i-1), X(i), betweenNoise, &factorIndex);  
+    // add_trueFactors(&graph, tag, keyTable[tag.ID], true_error, true_noise, &factorIndex);
 
     write_log("Optimising\n");
 
@@ -176,7 +172,7 @@ int main() {
   values = isam.calculateBestEstimate();
   write_matrix(isam.getFactorsUnsafe().linearize(values)->jacobian().first, "jacobian");
 
-  for (int i=0; i<samples; i++) {
+  for (int i=0; i<parameters["samples"]; i++) {
     Point3 estimate = values.at<Point3>(X(i));
     auto covariance = isam.marginalCovariance(X(i));
 
@@ -190,10 +186,10 @@ int main() {
 
   write_matrix(anchorMatrix, "anchors");
   write_matrix(data, "data"); // Writes recorded data to file
-  auto covariance = isam.marginalCovariance(X(samples-1));
-  auto residual = tag.location - values.at<Point3>(X(samples-1));
+  auto covariance = isam.marginalCovariance( X( (int)parameters["samples"]-1 ) );
+  auto residual = tag.location - values.at<Point3>( X((int)parameters["samples"]-1) );
 
-  cout << "final tag: " << endl << values.at<Point3>(X(samples-1)) << endl; // Final report to console
+  cout << "final tag: " << endl << values.at<Point3>( X( (int)parameters["samples"]-1 ) ) << endl;
   cout << "tag: " << endl << tag.location << endl;
   close_log();
   delete sensor;

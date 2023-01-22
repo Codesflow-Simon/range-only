@@ -1,0 +1,13 @@
+{
+    "samples": 20,
+    "kernelSigma": 3.0,
+    "kernelLength": 1.0,
+    "numSensors": 20,
+    "gaussianMaxWidth": 20,
+    
+    "increment_sigma": 0.1,
+    "tagStart_sigma": 2.0,
+    "anchorStart_sigma": 4.0,
+    "anchorError": 0.1,
+    "true_error": 0.1
+}

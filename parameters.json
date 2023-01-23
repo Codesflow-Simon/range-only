@@ -1,9 +1,9 @@
 {
-    "samples": 20,
+    "samples": 300,
     "kernelSigma": 3.0,
     "kernelLength": 1.0,
-    "numSensors": 20,
-    "gaussianMaxWidth": 20,
+    "numSensors": 6,
+    "gaussianMaxWidth": 50,
     
     "increment_sigma": 0.1,
     "tagStart_sigma": 2.0,

@@ -79,6 +79,35 @@ Eigen::MatrixXd brownianKernel(int size, double sigma) {
 } 
 
 /**
+ * @brief function of the Brownian motion kernel for gaussian processes (https://math.stackexchange.com/questions/1273437/brownian-motion-and-covariance)
+ * @param int a, first index
+ * @param int b, second index
+ * @param int sigma, scales output by sigma^2
+ * @param double lengthScale, increase to make smoother
+ * @return double covariance
+*/
+double linearKernelFunction(int a, int b, double sigma, double zero_sigma=0, double x_int=0) {
+  return  zero_sigma * zero_sigma + sigma * sigma * (a-x_int) * (b-x_int);  // Using 1 indexing to avoid zeros making the matrix singular with zeros in first row
+}
+
+/**
+ * @brief will fetch a square matrix of dimension `size + 1` using the linearKernelFunction to generate covariances
+ * @param int size, will create matrix of dimension size+1, meaning passing gaussianMaxWidth with generate the correct sized matrix
+ * @param double sigma, will pass to linearKernelFunction
+ * @return Eigen::MatrixXd kernel matrix
+*/
+Eigen::MatrixXd linearKernel(int size, double sigma, double zero_sigma=0, double x_int=0) {
+  int matSize = size; //Including diagonal
+  auto mat = Eigen::MatrixXd(matSize,matSize); 
+  for (int i=0; i<matSize; i++) {
+    for (int j=0; j<matSize; j++) {
+      mat(i,j) = linearKernelFunction(i,j,sigma,zero_sigma,x_int);
+    }
+  }
+  return mat;
+} 
+
+/**
  * @brief function of the Matern kernel for gaussian processes ()
  * @param int d, distance
  * @param int p, model parameter

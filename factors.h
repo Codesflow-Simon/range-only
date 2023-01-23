@@ -32,7 +32,7 @@ typedef PinholeCamera<Cal3_S2> Camera;
  * @param SharedNoiseModel camera noise model
 */
 void add_priors(Graph* graph, Values* values, Eigen::MatrixXd anchors, SharedNoiseModel anchorNoise, 
-  list<CameraWrapper*> cameras, SharedNoiseModel cameraNoise, int* factorIndex = NULL ,double anchorError=0.1) {
+  list<CameraWrapper*> cameras, SharedNoiseModel cameraNoise, SharedNoiseModel tagPriorNoise, int* factorIndex = NULL ,double anchorError=0.1) {
   write_log("adding priors\n");
 
   // Anchors
@@ -50,6 +50,9 @@ void add_priors(Graph* graph, Values* values, Eigen::MatrixXd anchors, SharedNoi
     values->insert(Symbol('c', i++), camera->getCamera()->pose());
     (*factorIndex)++;
   }
+
+  // Tag, assume the GP will fill in the value
+  graph->addPrior(Symbol('x', 0), (Point3) (Point3(0,0,0)), tagPriorNoise);
 }
 
 /**
@@ -159,7 +162,7 @@ JacobianFactor makeGaussianFactor(Eigen::Matrix<double,-1,-1> cholesky, double n
 void add_gaussianFactors(Graph* graph, Values* values, FactorIndices* remove, Eigen::Matrix<double,-1,-1> cholesky, int* factorIndex = NULL) {
 
   for (int i=0; i<cholesky.rows(); i++) {
-    Point3 initial = standard_normal_vector3()*0.1;
+    Point3 initial = standard_normal_vector3()*0.0;
     values->insert(Symbol('x', i), initial);
   }
 

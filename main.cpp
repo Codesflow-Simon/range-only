@@ -5,6 +5,7 @@
 #include "kernels.h"
 
 #include <gtsam/nonlinear/ISAM2.h>
+#include <gtsam_unstable/nonlinear/FixedLagSmoother.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/linear/GaussianFactorGraph.h>
 #include <gtsam/slam/BetweenFactor.h>
@@ -42,7 +43,7 @@ json parameters;
 map<string,Key> keyTable;
 
 auto anchorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.1);
-auto tagPriorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,4);
+auto tagPriorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.1);
 auto distNoise =  gtsam::noiseModel::Isotropic::Sigma(1,0.1);
 auto projNoise = gtsam::noiseModel::Isotropic::Sigma(2,0.1);
 auto cameraNoise = gtsam::noiseModel::Isotropic::Sigma(6,0.1);
@@ -104,16 +105,21 @@ int main() {
   Eigen::MatrixXd anchorMatrix = init_anchors();
 
   Anchor tag;
-  tag = Anchor( standard_normal_vector3() * parameters["tagStart_sigma"], "1000"); // Set actual tag location, using tag ID to be 1000
+  tag = Anchor(Point3(0,0,0), "1000"); // Set actual tag location, using tag ID to be 1000
+  Point3 velocity = standard_normal_vector3() * parameters["velocity_sigma"];
 
   Sensor* sensor = getSensor(anchorMatrix);
   keyTable[tag.ID] = X(0);
 
+  int sampleInterval = (int)parameters["timesteps"] / (int)parameters["samples"];
+
   auto cameras = list<CameraWrapper*>{getCamera(Pose3(Rot3::RzRyRx(0,0     ,0), Point3(0,0,-20))),
                                       getCamera(Pose3(Rot3::RzRyRx(0,M_PI/2,0), Point3(-20,0,0)))};
-  auto kernel = rbfKernel(parameters["gaussianMaxWidth"], parameters["kernelSigma"], parameters["kernelLength"]);
-  // auto kernel = brownianKernel(parameters["gaussianMaxWidth"], kernelSigma);
+  auto kernelRBF = rbfKernel(parameters["gaussianMaxWidth"], parameters["kernelSigma"], parameters["kernelLength"]);
+  auto kernelLinear = linearKernel(parameters["gaussianMaxWidth"], parameters["kernelLinearSigma"]);
+  auto kernelBrownian = brownianKernel(parameters["gaussianMaxWidth"], parameters["kernelBrownianSigma"]);
 
+  auto kernel = kernelRBF;
   auto cholesky = inverseCholesky(kernel);
   
   write_matrix(kernel, "covariance");
@@ -124,34 +130,34 @@ int main() {
   Values values, estimated_values;
   FactorIndices remove;
 
-  int factorIndex;
-  int GPIndex;
+  int factorIndex = 0;
   
-  add_priors(&graph, &values, anchorMatrix, anchorNoise, cameras, cameraNoise, &factorIndex, parameters["anchorError"]);
-
-  GPIndex = factorIndex; 
+  add_priors(&graph, &values, anchorMatrix, anchorNoise, cameras, cameraNoise, tagPriorNoise, &factorIndex, parameters["anchorError"]);
   add_gaussianFactors(&graph, &values, &remove, cholesky, &factorIndex);
 
   Time start;
   Time stop;
 
-  Eigen::MatrixXd data((int)parameters["samples"],10); // Data to export for analysis
+  Eigen::MatrixXd data((int)parameters["timesteps"],10); // Data to export for analysis
 
-  for (int i=0; i<parameters["samples"]; i++) {
+  for (int i=0; i<parameters["timesteps"]; i++) {
     write_log("loop " + to_string(i) + "\n");
     start = chrono::high_resolution_clock::now();
 
     keyTable[tag.ID] = X(i); // Sets the tag Key for the current index    
-    tag.location += standard_normal_vector3()*parameters["increment_sigma"]; // Move tag
+    tag.location += standard_normal_vector3()*parameters["increment_sigma"] + velocity; // Move tag
     write_log("tag: " + tag.to_string_());
 
-    write_log("adding factors\n");
-    if (i==0) add_rangeFactors(&graph, sensor, tag, keyTable, distNoise, &factorIndex ,true);
-    else add_rangeFactors(&graph, sensor, tag, keyTable, distNoise, &factorIndex);
-    add_cameraFactors(&graph, cameras, tag, X(i), projNoise, &factorIndex);
+    if (i%sampleInterval==0) {
 
-    // if (i>1) add_naiveBetweenFactors(&graph, X(i-1), X(i), betweenNoise, &factorIndex);  
-    // add_trueFactors(&graph, tag, keyTable[tag.ID], true_error, true_noise, &factorIndex);
+      write_log("adding factors\n");
+      if (i == 0) add_rangeFactors(&graph, sensor, tag, keyTable, distNoise, &factorIndex ,true);
+      else add_rangeFactors(&graph, sensor, tag, keyTable, distNoise, &factorIndex);
+      // add_cameraFactors(&graph, cameras, tag, X(i), projNoise, &factorIndex);
+
+      // if (i>1) add_naiveBetweenFactors(&graph, X(i-1), X(i), betweenNoise, &factorIndex);  
+      // add_trueFactors(&graph, tag, keyTable[tag.ID], true_error, true_noise, &factorIndex);
+    }
 
     write_log("Optimising\n");
 
@@ -172,7 +178,7 @@ int main() {
   values = isam.calculateBestEstimate();
   write_matrix(isam.getFactorsUnsafe().linearize(values)->jacobian().first, "jacobian");
 
-  for (int i=0; i<parameters["samples"]; i++) {
+  for (int i=0; i<parameters["timesteps"]; i++) {
     Point3 estimate = values.at<Point3>(X(i));
     auto covariance = isam.marginalCovariance(X(i));
 

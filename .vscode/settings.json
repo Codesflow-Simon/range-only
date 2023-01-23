@@ -69,7 +69,8 @@
         "numbers": "cpp",
         "semaphore": "cpp",
         "stop_token": "cpp",
-        "*.ipp": "cpp"
+        "*.ipp": "cpp",
+        "ranges": "cpp"
     },
     "cSpell.words": [
         "Eigen",
@@ -81,7 +82,8 @@
         "Marquardt",
         "matern",
         "Optimising",
-        "timestep"
+        "timestep",
+        "timesteps"
     ],
     "cSpell.ignoreWords": [
         "asample"

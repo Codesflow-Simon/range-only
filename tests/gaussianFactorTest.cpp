@@ -2,6 +2,7 @@
 #include <gtsam/linear/VectorValues.h>
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/linear/GaussianFactorGraph.h>
+#include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/linear/NoiseModel.h>
 #include <gtsam/nonlinear/Marginals.h>
 #include "factors.h"
@@ -18,6 +19,20 @@ TEST_CASE ("GaussianFactorTest RBF", "[factors]") {
   VectorValues values;
   for (int i=0; i<samples; i++) values.insert(Symbol('x', i), Point3::Zero());
 
+  // Prior mean should be zero
+  REQUIRE(factor.error(values) < small);
+}
+
+TEST_CASE ("GaussianFactorTest ZeroMeanPrior RBF", "[factors]") {
+  int samples = 20;
+  MatrixXd kernel = rbfKernel(samples, 4, 1); // Sigma scales output, length slows oscillation
+  auto cholesky = inverseCholesky(kernel);
+  auto factor = makeGaussianFactor(cholesky);
+
+  VectorValues values;
+  for (int i=0; i<samples; i++) values.insert(Symbol('x', i), standard_normal_vector3()*5);
+
+  NonlinearFactorGraph
   // Prior mean should be zero
   REQUIRE(factor.error(values) < small);
 }

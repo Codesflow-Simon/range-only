@@ -50,6 +50,15 @@ auto cameraNoise = gtsam::noiseModel::Isotropic::Sigma(6,0.1);
 auto betweenNoise = gtsam::noiseModel::Isotropic::Sigma(3,0.1);
 auto true_noise = gtsam::noiseModel::Isotropic::Sigma(3,0.1);
 
+Eigen::VectorXd range(int a, int b) {
+  assert(a<=b);
+  Eigen::VectorXd out;
+  out.reserve(b-a+1);
+  for (int i=a; i<b; i++) {
+    out.push_back(i);
+  }
+}
+
 /**
  * @brief Builds a matrix of the position of anchors using random numbers
  * @return Eigen::MatrixXd matrix of the anchors positions
@@ -115,15 +124,15 @@ int main() {
 
   auto cameras = list<CameraWrapper*>{getCamera(Pose3(Rot3::RzRyRx(0,0     ,0), Point3(0,0,-20))),
                                       getCamera(Pose3(Rot3::RzRyRx(0,M_PI/2,0), Point3(-20,0,0)))};
-  auto kernelRBF = rbfKernel(parameters["gaussianMaxWidth"], parameters["kernelSigma"], parameters["kernelLength"]);
-  auto kernelLinear = linearKernel(parameters["gaussianMaxWidth"], parameters["kernelLinearSigma"]);
-  auto kernelBrownian = brownianKernel(parameters["gaussianMaxWidth"], parameters["kernelBrownianSigma"]);
+  // auto kernelRBF = rbfKernel(parameters["gaussianMaxWidth"], parameters["kernelSigma"], parameters["kernelLength"]);
+  // auto kernelLinear = linearKernel(parameters["gaussianMaxWidth"], parameters["kernelLinearSigma"]);
+  // auto kernelBrownian = brownianKernel(parameters["gaussianMaxWidth"], parameters["kernelBrownianSigma"]);
 
-  auto kernel = kernelRBF;
-  auto cholesky = inverseCholesky(kernel);
+  // auto kernel = kernelRBF;
+  // auto cholesky = inverseCholesky(kernel);
   
-  write_matrix(kernel, "covariance");
-  write_matrix(cholesky, "inverse covariance cholesky");
+  // write_matrix(kernel, "covariance");
+  // write_matrix(cholesky, "inverse covariance cholesky");
 
   ISAM2 isam;
   Graph graph;
@@ -162,9 +171,7 @@ int main() {
       // add_trueFactors(&graph, tag, keyTable[tag.ID], true_error, true_noise);
     }
 
-    // if (i==0 || i%((int)parameters["gaussianMaxWidth"]-(int)parameters["gaussianOffset"]) == 0) {
-      add_gaussianFactors(&graph, cholesky, i);
-    // }
+    add_gaussianFactors(&graph, i, range(i-parameters["gaussianMaxWidth"], i, parameters["kernelSigma"], parameters["kernelLength"]));
 
     write_log("Optimising\n");
 

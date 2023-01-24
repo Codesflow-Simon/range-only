@@ -70,7 +70,8 @@
         "semaphore": "cpp",
         "stop_token": "cpp",
         "*.ipp": "cpp",
-        "ranges": "cpp"
+        "ranges": "cpp",
+        "valarray": "cpp"
     },
     "cSpell.words": [
         "Eigen",

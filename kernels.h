@@ -32,7 +32,7 @@ double rbfKernelFunction(int a, int b, double sigma, double lengthScale) {
 
 /**
  * @brief will fetch a square matrix of dimension `size + 1` using the rbfKernelFunction to generate covariances
- * @param int size, will create matrix of dimension size+1, meaning passing gaussianMaxWidth with generate the correct sized matrix
+ * @param int size, will create matrix of dimension size+1, meaning passing gaussianWidth with generate the correct sized matrix
  * @param double sigma, will pass to rbfKernelFunction
  * @param double lengthScale, will pass to rbfKernelFunction
  * @return Eigen::MatrixXd kernel matrix
@@ -63,7 +63,7 @@ double brownianKernelFunction(int a, int b, double sigma) {
 
 /**
  * @brief will fetch a square matrix of dimension `size + 1` using the brownianKernelFunction to generate covariances
- * @param int size, will create matrix of dimension size+1, meaning passing gaussianMaxWidth with generate the correct sized matrix
+ * @param int size, will create matrix of dimension size+1, meaning passing gaussianWidth with generate the correct sized matrix
  * @param double sigma, will pass to brownianKernelFunction
  * @return Eigen::MatrixXd kernel matrix
 */
@@ -92,7 +92,7 @@ double linearKernelFunction(int a, int b, double sigma, double zero_sigma=0, dou
 
 /**
  * @brief will fetch a square matrix of dimension `size + 1` using the linearKernelFunction to generate covariances
- * @param int size, will create matrix of dimension size+1, meaning passing gaussianMaxWidth with generate the correct sized matrix
+ * @param int size, will create matrix of dimension size+1, meaning passing gaussianWidth with generate the correct sized matrix
  * @param double sigma, will pass to linearKernelFunction
  * @return Eigen::MatrixXd kernel matrix
 */
@@ -121,7 +121,7 @@ double maternKernelFunction(int d, double p, double v, double sigma) {
 
 /**
  * @brief will fetch a square matrix of dimension `size + 1` using the maternKernelFunction to generate covariances
- * @param int size, will create matrix of dimension size+1, meaning passing gaussianMaxWidth with generate the correct sized matrix
+ * @param int size, will create matrix of dimension size+1, meaning passing gaussianWidth with generate the correct sized matrix
  * @param double sigma, will pass to maternKernelFunction
  * @return Eigen::MatrixXd kernel matrix
 */

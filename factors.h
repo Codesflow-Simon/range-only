@@ -32,7 +32,7 @@ typedef PinholeCamera<Cal3_S2> Camera;
  * @param SharedNoiseModel camera noise model
 */
 void add_priors(Graph* graph, Values* values, Eigen::MatrixXd anchors, SharedNoiseModel anchorNoise, 
-  list<CameraWrapper*> cameras, SharedNoiseModel cameraNoise, SharedNoiseModel tagPriorNoise, int* factorIndex = NULL ,double anchorError=0.1) {
+  list<CameraWrapper*> cameras, SharedNoiseModel cameraNoise, SharedNoiseModel tagPriorNoise ,double anchorError=0.1) {
   write_log("adding priors\n");
 
   // Anchors
@@ -40,7 +40,6 @@ void add_priors(Graph* graph, Values* values, Eigen::MatrixXd anchors, SharedNoi
     write_log("adding anchor" + to_string(i) + "\n" );
     graph->addPrior(Symbol('l', i), (Point3) (anchors.row(i).transpose() + standard_normal_vector3()*anchorError), anchorNoise);
     values->insert(Symbol('l', i), (Point3) (anchors.row(i).transpose() + standard_normal_vector3()*anchorError));
-    (*factorIndex)++;
   }
 
   // Cameras
@@ -48,7 +47,6 @@ void add_priors(Graph* graph, Values* values, Eigen::MatrixXd anchors, SharedNoi
   for (auto camera : cameras) {
     graph->addPrior(Symbol('c', i), camera->getCamera()->pose(), cameraNoise);
     values->insert(Symbol('c', i++), camera->getCamera()->pose());
-    (*factorIndex)++;
   }
 
   // Tag, assume the GP will fill in the value
@@ -64,7 +62,7 @@ void add_priors(Graph* graph, Values* values, Eigen::MatrixXd anchors, SharedNoi
  * @param SharedNoiseModel noiseModel
  * @param bool include anchor to anchor (a2a) measurements, this improves accuracy of the location of the anchors, but only need to be done once
 */
-void add_rangeFactors(Graph* graph, Sensor* sensor, Anchor tag, map<string,Key> keyTable, SharedNoiseModel distNoise, int* factorIndex = NULL, bool include_a2a=false) {
+void add_rangeFactors(Graph* graph, Sensor* sensor, Anchor tag, map<string,Key> keyTable, SharedNoiseModel distNoise, bool include_a2a=false) {
   // Samples from sensors
   map<pair<Anchor,Anchor>,double> sample = sensor->sample(tag);
 
@@ -84,7 +82,6 @@ void add_rangeFactors(Graph* graph, Sensor* sensor, Anchor tag, map<string,Key> 
 
     auto factor = RangeFactor<Point3>(keyA, keyB, pair.second, distNoise);
     graph->add(factor);
-    (*factorIndex)++;
 
     write_log("Added DistanceFactor " + keyToString(keyA) + " and " + keyToString(keyB) + " with measurement " + 
                to_string(pair.second) + "\n Anchor at " + vecToString(anchorPair.second.location) + "\n");
@@ -98,9 +95,8 @@ void add_rangeFactors(Graph* graph, Sensor* sensor, Anchor tag, map<string,Key> 
  * @param Key this tag key
  * @param SharedNoiseModel noise mode;
 */
-void add_naiveBetweenFactors (Graph* graph, Key prevTag, Key tag, SharedNoiseModel betweenNoise, int* factorIndex = NULL) {
+void add_naiveBetweenFactors (Graph* graph, Key prevTag, Key tag, SharedNoiseModel betweenNoise) {
   graph->add(BetweenFactor<Point3>(prevTag, tag, Point3(0,0,0), betweenNoise));
-  (*factorIndex)++;
 }
 
 /**
@@ -110,7 +106,7 @@ void add_naiveBetweenFactors (Graph* graph, Key prevTag, Key tag, SharedNoiseMod
  * @param Key key of the tag
  * @param SharedNoiseModel noise model
 */
-void add_cameraFactors(Graph* graph, list<CameraWrapper*> cameras, Anchor tag, Key tagKey, SharedNoiseModel projNoise, int* factorIndex = NULL) {
+void add_cameraFactors(Graph* graph, list<CameraWrapper*> cameras, Anchor tag, Key tagKey, SharedNoiseModel projNoise) {
   write_log("adding GenericProjectionFactors\n");
   int i=0;
   for (auto camera : cameras) {
@@ -121,7 +117,6 @@ void add_cameraFactors(Graph* graph, list<CameraWrapper*> cameras, Anchor tag, K
 
     auto factor = GenericProjectionFactor<Pose3, Point3, Cal3_S2>(measurement, projNoise, Symbol('c', i++), tagKey, camera->getParams());
     graph->add(factor);
-    (*factorIndex)++;
   }
 }
 
@@ -130,11 +125,11 @@ void add_cameraFactors(Graph* graph, list<CameraWrapper*> cameras, Anchor tag, K
  * @param Matrix cholesky, Cholesky decomposition of inverse covariance
  * @param double coefficient for diagonal of noise model
 */
-JacobianFactor makeGaussianFactor(Eigen::Matrix<double,-1,-1> cholesky, double noiseModelCoef=0.1) {
+JacobianFactor makeGaussianFactor(Eigen::Matrix<double,-1,-1> cholesky, int start=0, double noiseModelCoef=0.1) {
   FastVector<pair<Key, gtsam::Matrix>> terms(cholesky.rows());
   for (int i=0; i<cholesky.rows(); i++) {
     auto keyMatrix = pair<Key, gtsam::Matrix>();
-    keyMatrix.first = Symbol('x', i);
+    keyMatrix.first = Symbol('x', i+start);
     MatrixXd mat(3*(cholesky.rows()),3);
     for (int j=0; j<cholesky.rows(); j++) {
       double value = cholesky(j,i);
@@ -159,17 +154,10 @@ JacobianFactor makeGaussianFactor(Eigen::Matrix<double,-1,-1> cholesky, double n
  * @param FactorIndices* remove, add factors to remove
  * @param Eigen::Matrix<double,-1,-1>  (upper) cholesky of the inverse covariance matrix for one dimension.
 */
-void add_gaussianFactors(Graph* graph, Values* values, FactorIndices* remove, Eigen::Matrix<double,-1,-1> cholesky, int* factorIndex = NULL) {
-
-  for (int i=0; i<cholesky.rows(); i++) {
-    Point3 initial = standard_normal_vector3()*0.0;
-    values->insert(Symbol('x', i), initial);
-  }
-
-  auto factor = makeGaussianFactor(cholesky);
+void add_gaussianFactors(Graph* graph, Values* values, Eigen::Matrix<double,-1,-1> cholesky, int start=0) {
+  auto factor = makeGaussianFactor(cholesky, start);
   auto linearFactor = LinearContainerFactor(factor);
   graph->add(linearFactor);
-  (*factorIndex)++;
 }
 
 /**
@@ -180,8 +168,7 @@ void add_gaussianFactors(Graph* graph, Values* values, FactorIndices* remove, Ei
  * @param error, error to introduce to model
  * @param SharedNoiseModel noise model
 */
-void add_trueFactors(Graph* graph, Anchor tag, Key tagKey, double error, SharedNoiseModel true_noise, int* factorIndex = NULL) {
+void add_trueFactors(Graph* graph, Anchor tag, Key tagKey, double error, SharedNoiseModel true_noise) {
   Point3 data = tag.location + standard_normal_vector3() * error;
   graph->addPrior(tagKey, data, true_noise);
-  (*factorIndex)++;
 }

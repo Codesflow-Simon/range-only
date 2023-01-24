@@ -111,7 +111,7 @@ int main() {
   Sensor* sensor = getSensor(anchorMatrix);
   keyTable[tag.ID] = X(0);
 
-  int sampleInterval = (int)parameters["timesteps"] / (int)parameters["samples"];
+  int sampleInterval = (int)parameters["samplesInterval"];
 
   auto cameras = list<CameraWrapper*>{getCamera(Pose3(Rot3::RzRyRx(0,0     ,0), Point3(0,0,-20))),
                                       getCamera(Pose3(Rot3::RzRyRx(0,M_PI/2,0), Point3(-20,0,0)))};
@@ -132,8 +132,11 @@ int main() {
 
   int factorIndex = 0;
   
-  add_priors(&graph, &values, anchorMatrix, anchorNoise, cameras, cameraNoise, tagPriorNoise, &factorIndex, parameters["anchorError"]);
-  add_gaussianFactors(&graph, &values, &remove, cholesky, &factorIndex);
+  add_priors(&graph, &values, anchorMatrix, anchorNoise, cameras, cameraNoise, tagPriorNoise, parameters["anchorError"]);
+  for (int i=0; i<(int)parameters["timesteps"] + (int)parameters["gaussianMaxWidth"]; i++) {
+    Point3 point = standard_normal_vector3()*parameters["initialization_sigma"];
+    values.insert(X(i), point);
+  }
 
   Time start;
   Time stop;
@@ -151,13 +154,17 @@ int main() {
     if (i%sampleInterval==0) {
 
       write_log("adding factors\n");
-      if (i == 0) add_rangeFactors(&graph, sensor, tag, keyTable, distNoise, &factorIndex ,true);
-      else add_rangeFactors(&graph, sensor, tag, keyTable, distNoise, &factorIndex);
-      // add_cameraFactors(&graph, cameras, tag, X(i), projNoise, &factorIndex);
+      if (i == 0) add_rangeFactors(&graph, sensor, tag, keyTable, distNoise ,true);
+      else add_rangeFactors(&graph, sensor, tag, keyTable, distNoise);
+      add_cameraFactors(&graph, cameras, tag, X(i), projNoise);
 
-      // if (i>1) add_naiveBetweenFactors(&graph, X(i-1), X(i), betweenNoise, &factorIndex);  
-      // add_trueFactors(&graph, tag, keyTable[tag.ID], true_error, true_noise, &factorIndex);
+      // if (i>1) add_naiveBetweenFactors(&graph, X(i-1), X(i), betweenNoise);  
+      // add_trueFactors(&graph, tag, keyTable[tag.ID], true_error, true_noise);
     }
+
+    // if (i==0 || i%((int)parameters["gaussianMaxWidth"]-(int)parameters["gaussianOffset"]) == 0) {
+      add_gaussianFactors(&graph, cholesky, i);
+    // }
 
     write_log("Optimising\n");
 
@@ -192,10 +199,10 @@ int main() {
 
   write_matrix(anchorMatrix, "anchors");
   write_matrix(data, "data"); // Writes recorded data to file
-  auto covariance = isam.marginalCovariance( X( (int)parameters["samples"]-1 ) );
-  auto residual = tag.location - values.at<Point3>( X((int)parameters["samples"]-1) );
+  auto covariance = isam.marginalCovariance( X( (int)parameters["timesteps"]-1 ) );
+  auto residual = tag.location - values.at<Point3>( X((int)parameters["timesteps"]-1) );
 
-  cout << "final tag: " << endl << values.at<Point3>( X( (int)parameters["samples"]-1 ) ) << endl;
+  cout << "final tag: " << endl << values.at<Point3>( X( (int)parameters["timesteps"]-1 ) ) << endl;
   cout << "tag: " << endl << tag.location << endl;
   close_log();
   delete sensor;

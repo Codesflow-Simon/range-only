@@ -150,11 +150,10 @@ JacobianFactor makeGaussianFactor(Eigen::Matrix<double,-1,-1> cholesky, int star
  * @brief Creates a gaussian process prior for variables in the X(t) chain. Takes the (upper) cholesky of the inverse covariance matrix. 
  * This matrix should represent the kernel in one dimension, this function copies it into three dimensions.
  * @param Graph* graph to write 
- * @param Values* values to write to
  * @param FactorIndices* remove, add factors to remove
  * @param Eigen::Matrix<double,-1,-1>  (upper) cholesky of the inverse covariance matrix for one dimension.
 */
-void add_gaussianFactors(Graph* graph, Values* values, Eigen::Matrix<double,-1,-1> cholesky, int start=0) {
+void add_gaussianFactors(Graph* graph, Eigen::Matrix<double,-1,-1> cholesky, int start=0) {
   auto factor = makeGaussianFactor(cholesky, start);
   auto linearFactor = LinearContainerFactor(factor);
   graph->add(linearFactor);

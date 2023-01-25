@@ -33,7 +33,7 @@ TEST_CASE("Identify3 b") {
   REQUIRE(a.block(3,3,3,3).isApprox(e));
 }
 
-TEST_CASE ("GaussianFactorTest RBF", "[factors]") {
+TEST_CASE ("GaussianFactor RBF has mean zero", "[GaussianFactor, factors]") {
   int samples = 20;
   MatrixXd kernel = rbfKernel(range(0,samples), 4, 1); // Sigma scales output, length slows oscillation
   auto cholesky = inverseCholesky(kernel);
@@ -47,9 +47,10 @@ TEST_CASE ("GaussianFactorTest RBF", "[factors]") {
   REQUIRE(factor.error(values) < small);
 }
 
-TEST_CASE ("GaussianFactorTest ZeroMeanPrior RBF", "[factors]") {
+TEST_CASE ("GaussianFactor RBF with conversion has mean zero", "[GaussianFactor, factors]") {
   int samples = 20;
-  MatrixXd kernel = rbfKernel(range(0,samples), 4, 1); // Sigma scales output, length slows oscillation
+  double sigma = 3;
+  MatrixXd kernel = rbfKernel(range(0,samples), sigma, 1); // Sigma scales output, length slows oscillation
   auto cholesky = inverseCholesky(kernel);
   auto factor = makeGaussianFactor(cholesky);
 
@@ -65,13 +66,11 @@ TEST_CASE ("GaussianFactorTest ZeroMeanPrior RBF", "[factors]") {
 
   // Native linear graph
   GaussianFactorGraph graph1;
-  // graph1.add(Symbol('x', 0), Matrix33::Identity(), Point3(0,0,0));
   graph1.add(factor);
   VectorValues MAP1 = graph1.optimize();
   
   // Wrapped as a nonlinear graph
   NonlinearFactorGraph graph2;
-  // graph2.addPrior(Symbol('x',0), Point3(0,0,0), noise);
   auto linearFactor = LinearContainerFactor(factor, zeros);
   graph2.add(linearFactor);
   Values MAP2 = LevenbergMarquardtOptimizer(graph2, values).optimize();
@@ -82,13 +81,26 @@ TEST_CASE ("GaussianFactorTest ZeroMeanPrior RBF", "[factors]") {
 
   // Prior mean should be zero
   for (int i=0; i<samples; i++) {
-    REQUIRE(MAP1.at(Symbol('x',i)).norm()         <  1e-4);
-    REQUIRE(MAP2.at<Point3>(Symbol('x',i)).norm() <  1e-4);
-    REQUIRE(MAP3.at(Symbol('x',i)).norm()         <  1e-4);
+    REQUIRE(MAP1.at(Symbol('x',i)).norm()         <  1e-6);
+    REQUIRE(MAP2.at<Point3>(Symbol('x',i)).norm() <  1e-6);
+    REQUIRE(MAP3.at(Symbol('x',i)).norm()         <  1e-6);
+  }
+  
+  auto marginals1 = Marginals(graph1, MAP1);
+  auto marginals2 = Marginals(graph2, MAP2);
+  auto marginals3 = Marginals(*graph3, MAP3);
+
+  for (int i=0; i<samples; i++) {
+    REQUIRE(marginals1.marginalCovariance(Symbol('x',i)).isApprox(Matrix33::Identity() * sigma*sigma, 1e-6));
+    REQUIRE(marginals2.marginalCovariance(Symbol('x',i)).isApprox(Matrix33::Identity() * sigma*sigma, 1e-6));
+    REQUIRE(marginals3.marginalCovariance(Symbol('x',i)).isApprox(Matrix33::Identity() * sigma*sigma, 1e-6));
+
+
+
   }
 }
 
-TEST_CASE("NonlinearGaussianFactorTestCompare RBF", "[factors]") {
+TEST_CASE("GaussianFactor nonlinear RBF fits data", "[GaussianFactor, factors]") {
   // Comparing results to data from another Gaussian Process, only working in x
   auto kernel = rbfKernel(range(0,7), 1, 1);
   auto cholesky = inverseCholesky(kernel);
@@ -135,7 +147,7 @@ TEST_CASE("NonlinearGaussianFactorTestCompare RBF", "[factors]") {
   }
 }
 
-TEST_CASE("NonlinearGaussianFactorTestCompare2 RBF", "[factors]") {
+TEST_CASE("GaussianFactor nonlinear RBF fits data multidimensional", "[GaussianFactor, factors]") {
   // Comparing results to data from another Gaussian Process, only working in x
   auto kernel = rbfKernel(range(0,7), 2, 0.5);
   auto cholesky = inverseCholesky(kernel);
@@ -181,7 +193,7 @@ TEST_CASE("NonlinearGaussianFactorTestCompare2 RBF", "[factors]") {
     REQUIRE(abs(margin.marginalCovariance(Symbol('x', i))(2,2) - trueVar2[i]) < small);
   }
 }
-TEST_CASE("GaussianFactorTestCompare RBF", "[factors]") {
+TEST_CASE("GaussianFactor RBF fits data", "[GaussianFactor, factors]") {
   // Comparing results to data from another Gaussian Process, only working in x
   auto kernel = rbfKernel(range(0,7), 1, 1);
   auto cholesky = inverseCholesky(kernel);
@@ -272,7 +284,7 @@ TEST_CASE ("GaussianFactorTest Brownian", "[factors]") {
   REQUIRE(factor.error(values) < small);
 }
 
-TEST_CASE("GaussianFactorTestCompare Brownian", "[factors]") {
+TEST_CASE("GaussianFactor Brownian fits data", "[GaussianFactor, factors]") {
   // Comparing results to data from another Gaussian Process, only working in x
   auto kernel = brownianKernel(range(0,7), 0.1);
   auto cholesky = inverseCholesky(kernel);
@@ -311,7 +323,7 @@ TEST_CASE("GaussianFactorTestCompare Brownian", "[factors]") {
   }
 }
 
-TEST_CASE("GaussianFactorTestCompare2 Brownian", "[factors]") {
+TEST_CASE("GaussianFactor Brownian fits data multidimensional", "[GaussianFactor, factors]") {
   // Comparing results to data from another Gaussian Process, only working in x
   auto kernel = brownianKernel(range(0,7), 2);
   auto cholesky = inverseCholesky(kernel);
@@ -350,6 +362,74 @@ TEST_CASE("GaussianFactorTestCompare2 Brownian", "[factors]") {
   }
 }
 
-TEST_CASE("Gaussian Conditional", "[factors]") {
+TEST_CASE("GaussianConditional has zero mean", "[GaussianConditional, factors]") {
+  // Comparing results with makeGaussianFactor
+  int datapoints = 8;
+  auto kernel = rbfKernel(range(0,datapoints), 1, 1);
+  auto cholesky = inverseCholesky(kernel);
+  auto dense = makeGaussianFactor(cholesky);
 
+  GaussianFactorGraph graphDense;
+  graphDense.add(dense);
+
+  GaussianFactorGraph graphFactors;
+  for (int i=0; i<datapoints; i++) {
+    auto factor = makeGaussianConditional(0, range(0,i+1), 1, 1);
+    graphFactors.add(factor);
+  }
+
+  VectorValues a = graphDense.optimize();
+  VectorValues b = graphFactors.optimize();
+
+  // Prior mean should be zero
+  for (int i=0; i<datapoints; i++) {
+    REQUIRE(a.at(Symbol('x',i)).norm() < 1e-8);
+    REQUIRE(b.at(Symbol('x',i)).norm() < 1e-8);
+  }
+}
+
+TEST_CASE("GaussianConditional is factor of GaussianFactor", "[GaussianFactor, GaussianConditional, factors]") {
+  // Comparing results with makeGaussianFactor
+  int datapoints = 8;
+  auto kernel = rbfKernel(range(0,datapoints), 1, 1);
+  auto cholesky = inverseCholesky(kernel);
+  auto dense = makeGaussianFactor(cholesky);
+
+  GaussianFactorGraph graphDense;
+  graphDense.add(dense);
+
+  GaussianFactorGraph graphFactors;
+  for (int i=0; i<datapoints; i++) {
+    auto factor = makeGaussianConditional(0, range(0,i+1), 1, 1);
+    graphFactors.add(factor);
+  }
+
+  SharedNoiseModel noise = noiseModel::Isotropic::Sigma(3,1);
+
+  graphDense.add(Symbol('x', 0), Matrix33::Identity(), Point3(-0.5, 1.4, 0.7));
+  graphDense.add(Symbol('x', 1), Matrix33::Identity(), Point3(-0.4, 0.2, -0.5));
+  graphDense.add(Symbol('x', 2), Matrix33::Identity(), Point3(1.1, -0.7, 0.6));
+  graphDense.add(Symbol('x', 3), Matrix33::Identity(), Point3(-0.4, -0.5, -1.1));
+  graphDense.add(Symbol('x', 4), Matrix33::Identity(), Point3(0.5, 0.1, 0.3));
+
+  graphFactors.add(Symbol('x', 0), Matrix33::Identity(), Point3(-0.5, 1.4, 0.7));
+  graphFactors.add(Symbol('x', 1), Matrix33::Identity(), Point3(-0.4, 0.2, -0.5));
+  graphFactors.add(Symbol('x', 2), Matrix33::Identity(), Point3(1.1, -0.7, 0.6));
+  graphFactors.add(Symbol('x', 3), Matrix33::Identity(), Point3(-0.4, -0.5, -1.1));
+  graphFactors.add(Symbol('x', 4), Matrix33::Identity(), Point3(0.5, 0.1, 0.3));
+
+  VectorValues a = graphDense.optimize();
+  VectorValues b = graphFactors.optimize();
+
+  // Prior mean should be zero
+  for (int i=0; i<datapoints; i++) {
+    REQUIRE((a.at(Symbol('x',i)) - b.at(Symbol('x',i))).norm() < 1e-8);
+  }
+
+  auto marginal1 = Marginals(graphDense, a);
+  auto marginal2 = Marginals(graphFactors, b);
+  for (int i=0; i<datapoints; i++) {
+    REQUIRE(marginal1.marginalCovariance(Symbol('x', i)).isApprox( 
+            marginal2.marginalCovariance(Symbol('x', i)) ));
+  }
 }

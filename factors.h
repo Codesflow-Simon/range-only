@@ -170,40 +170,47 @@ JacobianFactor makeGaussianFactor(Eigen::Matrix<double,-1,-1> cholesky, int star
  * Using wikipedia notation, we are computing P(x2|x1) or P(Frontal|Parents) where frontal is a single Point3.
  * @param int start, X-key index to start on
  * @param VectorXd start, X-key index to start on
- * @param double kernel sigma, kernel paramter, see kernel.h
- * @param double kernel length (for RBF), kernel paramter, see kernel.h
+ * @param double kernel sigma, kernel parameter, see kernel.h
+ * @param double kernel length (for RBF), kernel parameter, see kernel.h
 */
 GaussianConditional makeGaussianConditional(int start, VectorXd indicies, double kernel_sigma, double kernel_length) {
   int n = indicies.size()-1;
+  FastVector<pair<Key, gtsam::Matrix>> terms(indicies.size());
+
   MatrixXd covariance = rbfKernel(indicies, kernel_sigma, kernel_length);
+
   MatrixXd K_1_1 = covariance.block(0,0,n,n);
   VectorXd K_2_1 = covariance.block(0,n,n,1);
   Matrix11 K_2_2 = Matrix11(covariance(n,n));
+  double cholesky;
 
-  Eigen::RowVectorXd mu_coef = K_2_1.transpose()* K_1_1.inverse();
-  Matrix11 new_covariance = K_2_2 - (mu_coef* K_2_1);
-  double cholesky = sqrt(1/new_covariance(0,0));
+  if (n!=0) {
+    Eigen::RowVectorXd conditional_coefs = K_2_1.transpose()* K_1_1.inverse();
+    Matrix11 new_covariance = K_2_2 - (conditional_coefs* K_2_1);
+    cholesky = sqrt(1/new_covariance(0,0));
 
-  FastVector<pair<Key, gtsam::Matrix>> terms(indicies.size());
-  for (int i=0;i<indicies.size(); i++) {
-    pair<Key, gtsam::Matrix> out;
-    out.first = Symbol('X', i+start);
-    
-    if (i!=indicies.size()-1) {
-      // Parents 
-      Matrix11 col = mu_coef.col(i);
-      Matrix33 mat = identify3(col);
-      out.second = -mat * cholesky;
-    } else {
-      // Frontal
-      out.second = Matrix33::Identity() * cholesky;
+    for (int i=0;i<indicies.size()-1; i++) { 
+      pair<Key, gtsam::Matrix> out;
+      out.first = Symbol('x', i+start);
+      
+      if (i!=indicies.size()-1) {
+        // Parents 
+        Matrix11 col = conditional_coefs.col(i);
+        Matrix33 mat = identify3(col);
+        out.second = -mat * cholesky;
+      }
+      terms[i] = out;
     }
-    terms.push_back(out);
-  }
+  } else 
+    cholesky = sqrt(1/covariance(0,0));
+
+  pair<Key, gtsam::Matrix> out;
+  out.first = Symbol('x', start+indicies.size()-1);
+  out.second = Matrix33::Identity() * cholesky;
+  terms[indicies.size()-1] = out;
 
   auto zero = Point3(0,0,0);
-  auto noise = noiseModel::Isotropic::Sigma(3,1);
-  auto factor = GaussianConditional(terms, 1, zero, noise); 
+  auto factor = GaussianConditional(terms, 1, zero); 
   return factor;
 }
 
@@ -218,7 +225,9 @@ GaussianConditional makeGaussianConditional(int start, VectorXd indicies, double
 void add_gaussianFactors(Graph* graph, int start, VectorXd indicies, double sigma, double length) {
   auto factor = makeGaussianConditional(start, indicies, sigma, length);
   Values zeros;
-  for (int i=0; i<indicies.size(); i++) zeros.insert(Symbol('x', start+i), Point3(0,0,0));
+  for (int i=0; i<indicies.size(); i++) {
+    zeros.insert(Symbol('x', start+i), Point3(0,0,0));
+  }
   auto linearFactor = LinearContainerFactor(factor, zeros);
   graph->add(linearFactor);
 }

@@ -115,24 +115,15 @@ int main() {
 
   auto cameras = list<CameraWrapper*>{getCamera(Pose3(Rot3::RzRyRx(0,0     ,0), Point3(0,0,-20))),
                                       getCamera(Pose3(Rot3::RzRyRx(0,M_PI/2,0), Point3(-20,0,0)))};
-  // auto kernelRBF = rbfKernel(parameters["gaussianMaxWidth"], parameters["kernelSigma"], parameters["kernelLength"]);
-  // auto kernelLinear = linearKernel(parameters["gaussianMaxWidth"], parameters["kernelLinearSigma"]);
-  // auto kernelBrownian = brownianKernel(parameters["gaussianMaxWidth"], parameters["kernelBrownianSigma"]);
-
-  // auto kernel = kernelRBF;
-  // auto cholesky = inverseCholesky(kernel);
-  
-  // write_matrix(kernel, "covariance");
-  // write_matrix(cholesky, "inverse covariance cholesky");
 
   ISAM2 isam;
   Graph graph;
   Values values, estimated_values;
-  FactorIndices remove;
 
   int factorIndex = 0;
   
   add_priors(&graph, &values, anchorMatrix, anchorNoise, cameras, cameraNoise, tagPriorNoise, parameters["anchorError"]);
+
   for (int i=0; i<(int)parameters["timesteps"] + (int)parameters["gaussianMaxWidth"]; i++) {
     Point3 point = standard_normal_vector3()*parameters["initialization_sigma"];
     values.insert(X(i), point);
@@ -156,17 +147,22 @@ int main() {
       write_log("adding factors\n");
       if (i == 0) add_rangeFactors(&graph, sensor, tag, keyTable, distNoise ,true);
       else add_rangeFactors(&graph, sensor, tag, keyTable, distNoise);
-      add_cameraFactors(&graph, cameras, tag, X(i), projNoise);
+      // add_cameraFactors(&graph, cameras, tag, X(i), projNoise);
 
       // if (i>1) add_naiveBetweenFactors(&graph, X(i-1), X(i), betweenNoise);  
       // add_trueFactors(&graph, tag, keyTable[tag.ID], true_error, true_noise);
     }
+    VectorXd indicies; 
+    if (i<(int)parameters["gaussianMaxWidth"]) indicies = range(0,i);
+    else indicies = range(i-(int)parameters["gaussianMaxWidth"], i);
 
-    add_gaussianFactors(&graph, i, range(i-(int)parameters["gaussianMaxWidth"], i), parameters["kernelSigma"], parameters["kernelLength"]);
+    cout << indicies << endl;
+    
+    add_gaussianFactors(&graph, i, indicies, parameters["kernelSigma"], parameters["kernelLength"]);
 
     write_log("Optimising\n");
 
-    auto results = isam.update(graph, values, remove);
+    auto results = isam.update(graph, values);
 
     graph.resize(0);
     values.clear();

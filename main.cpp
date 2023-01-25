@@ -50,15 +50,6 @@ auto cameraNoise = gtsam::noiseModel::Isotropic::Sigma(6,0.1);
 auto betweenNoise = gtsam::noiseModel::Isotropic::Sigma(3,0.1);
 auto true_noise = gtsam::noiseModel::Isotropic::Sigma(3,0.1);
 
-Eigen::VectorXd range(int a, int b) {
-  assert(a<=b);
-  Eigen::VectorXd out;
-  out.reserve(b-a+1);
-  for (int i=a; i<b; i++) {
-    out.push_back(i);
-  }
-}
-
 /**
  * @brief Builds a matrix of the position of anchors using random numbers
  * @return Eigen::MatrixXd matrix of the anchors positions
@@ -171,7 +162,7 @@ int main() {
       // add_trueFactors(&graph, tag, keyTable[tag.ID], true_error, true_noise);
     }
 
-    add_gaussianFactors(&graph, i, range(i-parameters["gaussianMaxWidth"], i, parameters["kernelSigma"], parameters["kernelLength"]));
+    add_gaussianFactors(&graph, i, range(i-(int)parameters["gaussianMaxWidth"], i), parameters["kernelSigma"], parameters["kernelLength"]);
 
     write_log("Optimising\n");
 

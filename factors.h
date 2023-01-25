@@ -7,11 +7,13 @@
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/slam/ProjectionFactor.h>
 #include <gtsam/nonlinear/LinearContainerFactor.h>
+#include <gtsam/linear/GaussianConditional.h>
 #include <gtsam/slam/BetweenFactor.h>
 
 #include "cameraEmulator.h"
 #include "sensorEmulator.h"
 #include "logging.h"
+#include "kernels.h"
 
 using namespace std;
 using namespace gtsam;
@@ -119,13 +121,31 @@ void add_cameraFactors(Graph* graph, list<CameraWrapper*> cameras, Anchor tag, K
     graph->add(factor);
   }
 }
+/**
+ * @brief Replaces each entry in a matrix with a 3x3 identity matrix scaled the the original value
+ * @param Matrix
+ * @return Matrix
+*/
+MatrixXd identify3(MatrixXd in) {
+  MatrixXd out = MatrixXd::Zero(in.rows()*3, in.cols()*3);
+  for (int i=0; i<in.rows(); i++) {
+    for (int j=0; j<in.cols(); j++) {
+      double scalar = in(i,j);
+      out(3*i,3*j) = scalar;
+      out(3*i+1,3*j+1) = scalar;
+      out(3*i+2,3*j+2) = scalar;
+    }
+  }
+  return out;
+}
 
 /**
  * @brief creates a gaussian process prior
  * @param Matrix cholesky, Cholesky decomposition of inverse covariance
  * @param double coefficient for diagonal of noise model
+ * @return JacobianFactor, the factor
 */
-JacobianFactor makeGaussianFactor(Eigen::Matrix<double,-1,-1> cholesky, int start=0, double noiseModelCoef=0.1) {
+JacobianFactor makeGaussianFactor(Eigen::Matrix<double,-1,-1> cholesky, int start=0) {
   FastVector<pair<Key, gtsam::Matrix>> terms(cholesky.rows());
   for (int i=0; i<cholesky.rows(); i++) {
     auto keyMatrix = pair<Key, gtsam::Matrix>();
@@ -145,6 +165,47 @@ JacobianFactor makeGaussianFactor(Eigen::Matrix<double,-1,-1> cholesky, int star
   auto factor = JacobianFactor(terms, zero); // No noise (identity), baked into terms
   return factor;
 }
+/**
+ * @brief creates a conditional gaussian on  https://en.wikipedia.org/wiki/Multivariate_normal_distribution#Conditional_distributions.
+ * Using wikipedia notation, we are computing P(x2|x1) or P(Frontal|Parents) where frontal is a single Point3.
+ * @param int start, X-key index to start on
+ * @param VectorXd start, X-key index to start on
+ * @param double kernel sigma, kernel paramter, see kernel.h
+ * @param double kernel length (for RBF), kernel paramter, see kernel.h
+*/
+GaussianConditional makeGaussianConditional(int start, VectorXd indicies, double kernel_sigma, double kernel_length) {
+  int n = indicies.size()-1;
+  MatrixXd covariance = rbfKernel(indicies, kernel_sigma, kernel_length);
+  MatrixXd K_1_1 = covariance.block(0,0,n,n);
+  VectorXd K_2_1 = covariance.block(0,n,n,1);
+  Matrix11 K_2_2 = Matrix11(covariance(n,n));
+
+  Eigen::RowVectorXd mu_coef = K_2_1.transpose()* K_1_1.inverse();
+  Matrix11 new_covariance = K_2_2 - (mu_coef* K_2_1);
+  double cholesky = sqrt(1/new_covariance(0,0));
+
+  FastVector<pair<Key, gtsam::Matrix>> terms(indicies.size());
+  for (int i=0;i<indicies.size(); i++) {
+    pair<Key, gtsam::Matrix> out;
+    out.first = Symbol('X', i+start);
+    
+    if (i!=indicies.size()-1) {
+      // Parents 
+      Matrix11 col = mu_coef.col(i);
+      Matrix33 mat = identify3(col);
+      out.second = -mat * cholesky;
+    } else {
+      // Frontal
+      out.second = Matrix33::Identity() * cholesky;
+    }
+    terms.push_back(out);
+  }
+
+  auto zero = Point3(0,0,0);
+  auto noise = noiseModel::Isotropic::Sigma(3,1);
+  auto factor = GaussianConditional(terms, 1, zero, noise); 
+  return factor;
+}
 
 /**
  * @brief Creates a gaussian process prior for variables in the X(t) chain. Takes the (upper) cholesky of the inverse covariance matrix. 
@@ -154,9 +215,11 @@ JacobianFactor makeGaussianFactor(Eigen::Matrix<double,-1,-1> cholesky, int star
  * @param FactorIndices* remove, add factors to remove
  * @param Eigen::Matrix<double,-1,-1>  (upper) cholesky of the inverse covariance matrix for one dimension.
 */
-void add_gaussianFactors(Graph* graph, Eigen::Matrix<double,-1,-1> cholesky, int start=0) {
-  auto factor = makeGaussianFactor(cholesky, start);
-  auto linearFactor = LinearContainerFactor(factor);
+void add_gaussianFactors(Graph* graph, int start, VectorXd indicies, double sigma, double length) {
+  auto factor = makeGaussianConditional(start, indicies, sigma, length);
+  Values zeros;
+  for (int i=0; i<indicies.size(); i++) zeros.insert(Symbol('x', start+i), Point3(0,0,0));
+  auto linearFactor = LinearContainerFactor(factor, zeros);
   graph->add(linearFactor);
 }
 

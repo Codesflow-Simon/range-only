@@ -3,6 +3,10 @@
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/linear/GaussianFactorGraph.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
+#include <gtsam/nonlinear/Values.h>
+#include <gtsam/nonlinear/LinearContainerFactor.h>
+#include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
+#include <gtsam_unstable/nonlinear/LinearizedFactor.h>
 #include <gtsam/linear/NoiseModel.h>
 #include <gtsam/nonlinear/Marginals.h>
 #include "factors.h"
@@ -10,11 +14,31 @@
 
 double small = 1E-8;
 
+TEST_CASE("Identify3 a") {
+  MatrixXd a = identify3(Matrix11(3));
+  MatrixXd b = Matrix33::Identity()*3;
+  REQUIRE(a.isApprox(b));
+}
+TEST_CASE("Identify3 b") {
+  Matrix22 mat;
+  mat << 3,1,2,4;
+  MatrixXd a = identify3(mat);
+  MatrixXd b = Matrix33::Identity()*3;
+  REQUIRE(a.block(0,0,3,3).isApprox(b));
+  MatrixXd c = Matrix33::Identity()*1;
+  REQUIRE(a.block(0,3,3,3).isApprox(c));
+  MatrixXd d = Matrix33::Identity()*2;
+  REQUIRE(a.block(3,0,3,3).isApprox(d));
+  MatrixXd e = Matrix33::Identity()*4;
+  REQUIRE(a.block(3,3,3,3).isApprox(e));
+}
+
 TEST_CASE ("GaussianFactorTest RBF", "[factors]") {
   int samples = 20;
-  MatrixXd kernel = rbfKernel(samples, 4, 1); // Sigma scales output, length slows oscillation
+  MatrixXd kernel = rbfKernel(range(0,samples), 4, 1); // Sigma scales output, length slows oscillation
   auto cholesky = inverseCholesky(kernel);
   auto factor = makeGaussianFactor(cholesky);
+
 
   VectorValues values;
   for (int i=0; i<samples; i++) values.insert(Symbol('x', i), Point3::Zero());
@@ -25,21 +49,141 @@ TEST_CASE ("GaussianFactorTest RBF", "[factors]") {
 
 TEST_CASE ("GaussianFactorTest ZeroMeanPrior RBF", "[factors]") {
   int samples = 20;
-  MatrixXd kernel = rbfKernel(samples, 4, 1); // Sigma scales output, length slows oscillation
+  MatrixXd kernel = rbfKernel(range(0,samples), 4, 1); // Sigma scales output, length slows oscillation
   auto cholesky = inverseCholesky(kernel);
   auto factor = makeGaussianFactor(cholesky);
 
-  VectorValues values;
-  for (int i=0; i<samples; i++) values.insert(Symbol('x', i), standard_normal_vector3()*5);
+  Values zeros; 
+  Values values;
+  for (int i=0; i<samples; i++) {
+    Point3 p = standard_normal_vector3()*5;
+    values.insert(Symbol('x', i), p);
+    zeros.insert(Symbol('x', i), Point3(0,0,0));
+  }
 
-  NonlinearFactorGraph
+  SharedNoiseModel noise = noiseModel::Isotropic::Sigma(3,1);
+
+  // Native linear graph
+  GaussianFactorGraph graph1;
+  // graph1.add(Symbol('x', 0), Matrix33::Identity(), Point3(0,0,0));
+  graph1.add(factor);
+  VectorValues MAP1 = graph1.optimize();
+  
+  // Wrapped as a nonlinear graph
+  NonlinearFactorGraph graph2;
+  // graph2.addPrior(Symbol('x',0), Point3(0,0,0), noise);
+  auto linearFactor = LinearContainerFactor(factor, zeros);
+  graph2.add(linearFactor);
+  Values MAP2 = LevenbergMarquardtOptimizer(graph2, values).optimize();
+
+  // Re-linearized
+  auto graph3 = graph2.linearize(MAP2);
+  VectorValues MAP3 = graph3->optimize();
+
   // Prior mean should be zero
-  REQUIRE(factor.error(values) < small);
+  for (int i=0; i<samples; i++) {
+    REQUIRE(MAP1.at(Symbol('x',i)).norm()         <  1e-4);
+    REQUIRE(MAP2.at<Point3>(Symbol('x',i)).norm() <  1e-4);
+    REQUIRE(MAP3.at(Symbol('x',i)).norm()         <  1e-4);
+  }
 }
 
+TEST_CASE("NonlinearGaussianFactorTestCompare RBF", "[factors]") {
+  // Comparing results to data from another Gaussian Process, only working in x
+  auto kernel = rbfKernel(range(0,7), 1, 1);
+  auto cholesky = inverseCholesky(kernel);
+  auto factor = makeGaussianFactor(cholesky);
+
+  // Using data output [0.5, 0.7, 0.7, 0.8, 0.7]
+
+  NonlinearFactorGraph graph;
+
+  Values zeros; 
+  Values values;
+  for (int i=0; i<7; i++) {
+    Point3 p = standard_normal_vector3()*5;
+    values.insert(Symbol('x', i), p);
+    zeros.insert(Symbol('x', i), Point3(0,0,0));
+  }
+
+  auto noise = noiseModel::Isotropic::Sigma(3,1);
+  graph.addPrior(Symbol('x', 0), Point3(0.5,0,0), noise);
+  graph.addPrior(Symbol('x', 1), Point3(0.7,0,0), noise);
+  graph.addPrior(Symbol('x', 2), Point3(0.7,0,0), noise);
+  graph.addPrior(Symbol('x', 3), Point3(0.8,0,0), noise);
+  graph.addPrior(Symbol('x', 4), Point3(0.7,0,0), noise);
+
+  graph.add(LinearContainerFactor(factor, zeros));
+
+  values = LevenbergMarquardtOptimizer(graph, values).optimize();
+
+  // True values: 
+  Vector7 truePosterior;
+  truePosterior << 0.33228808, 0.47264458, 0.52414984, 0.54867366, 0.43940891, 0.19410022, 0.03811899;
+  for (int i=0; i<7; i++) {
+    REQUIRE(abs(values.at<Point3>(Symbol('x', i))[0] - truePosterior[i]) < small);
+  }
+
+  auto margin = Marginals(graph, values);
+  Vector7 trueVar;
+  trueVar << 0.44892178, 0.39556135, 0.39528471, 0.39556135, 0.44892178, 0.81462436, 0.99034773;
+  for (int i=0; i<7; i++) {
+    REQUIRE(abs(margin.marginalCovariance(Symbol('x', i))(0,0) - trueVar[i]) < small);
+  }
+  for (int i=0; i<7; i++) {
+    REQUIRE_FALSE(abs(margin.marginalCovariance(Symbol('x', i))(0,0) - (trueVar[i]+1)) < small);
+  }
+}
+
+TEST_CASE("NonlinearGaussianFactorTestCompare2 RBF", "[factors]") {
+  // Comparing results to data from another Gaussian Process, only working in x
+  auto kernel = rbfKernel(range(0,7), 2, 0.5);
+  auto cholesky = inverseCholesky(kernel);
+  auto factor = makeGaussianFactor(cholesky);
+
+  NonlinearFactorGraph graph;
+
+  Values zeros; 
+  Values values;
+  for (int i=0; i<7; i++) {
+    Point3 p = standard_normal_vector3()*5;
+    values.insert(Symbol('x', i), p);
+    zeros.insert(Symbol('x', i), Point3(0,0,0));
+  }
+
+  SharedDiagonal noise = SharedDiagonal(noiseModel::Diagonal::Sigmas(Vector3(0.5,0.7,0.7)));
+  graph.addPrior(Symbol('x', 0), Point3(1.4,1.6,1.6), noise);
+  graph.addPrior(Symbol('x', 1), Point3(2.1,2.3,2.3), noise);
+  graph.addPrior(Symbol('x', 2), Point3(1.8,2.0,2.0), noise);
+  graph.addPrior(Symbol('x', 3), Point3(0.6,0.8,0.8), noise);
+  graph.addPrior(Symbol('x', 4), Point3(-0.4,-0.6,-0.6), noise);
+
+  graph.add(LinearContainerFactor(factor, zeros));
+
+  values = LevenbergMarquardtOptimizer(graph, values).optimize();
+
+  Vector7 truePosterior1, truePosterior2;
+  truePosterior1 << 1.33083896e+00,  1.99665326e+00,  1.71077722e+00,  5.72658990e-01, -3.72959872e-01, -5.84049617e-02, -1.45128575e-04;
+  truePosterior2 << 1.45086338e+00,  2.08917207e+00,  1.81610588e+00,  7.25951734e-01, -5.25538498e-01, -8.20606141e-02, -2.03901415e-04;
+  for (int i=0; i<7; i++) {
+    REQUIRE(abs(values.at<Point3>(Symbol('x', i))[0] - truePosterior1[i]) < small);
+    REQUIRE(abs(values.at<Point3>(Symbol('x', i))[1] - truePosterior2[i]) < small);
+    REQUIRE(abs(values.at<Point3>(Symbol('x', i))[2] - truePosterior2[i]) < small);
+  }
+
+  auto margin = Marginals(graph, values);
+  Vector7 trueVar1, trueVar2;
+  trueVar1 << 0.23504762, 0.23479699, 0.23479301, 0.23479699, 0.23504762, 3.92993577, 3.99999957;
+  trueVar2 << 0.43572534, 0.4349131,  0.4349016,  0.4349131,  0.43572534, 3.93379569, 3.99999959;
+  for (int i=0; i<7; i++) {
+    REQUIRE(abs(margin.marginalCovariance(Symbol('x', i))(0,0) - trueVar1[i]) < small);
+    REQUIRE(abs(margin.marginalCovariance(Symbol('x', i))(1,1) - trueVar2[i]) < small);
+    REQUIRE(abs(margin.marginalCovariance(Symbol('x', i))(2,2) - trueVar2[i]) < small);
+  }
+}
 TEST_CASE("GaussianFactorTestCompare RBF", "[factors]") {
   // Comparing results to data from another Gaussian Process, only working in x
-  auto kernel = rbfKernel(7, 1, 1);
+  auto kernel = rbfKernel(range(0,7), 1, 1);
   auto cholesky = inverseCholesky(kernel);
   auto factor = makeGaussianFactor(cholesky);
 
@@ -78,7 +222,7 @@ TEST_CASE("GaussianFactorTestCompare RBF", "[factors]") {
 
 TEST_CASE("GaussianFactorTestCompare2 RBF", "[factors]") {
   // Comparing results to data from another Gaussian Process, only working in x
-  auto kernel = rbfKernel(7, 2, 0.5);
+  auto kernel = rbfKernel(range(0,7), 2, 0.5);
   auto cholesky = inverseCholesky(kernel);
   auto factor = makeGaussianFactor(cholesky);
 
@@ -117,7 +261,7 @@ TEST_CASE("GaussianFactorTestCompare2 RBF", "[factors]") {
 
 TEST_CASE ("GaussianFactorTest Brownian", "[factors]") {
   int samples = 20;
-  MatrixXd kernel = brownianKernel(samples, 1);
+  MatrixXd kernel = brownianKernel(range(0,samples), 1);
   auto cholesky = inverseCholesky(kernel);
   auto factor = makeGaussianFactor(cholesky);
 
@@ -130,7 +274,7 @@ TEST_CASE ("GaussianFactorTest Brownian", "[factors]") {
 
 TEST_CASE("GaussianFactorTestCompare Brownian", "[factors]") {
   // Comparing results to data from another Gaussian Process, only working in x
-  auto kernel = brownianKernel(7, 0.1);
+  auto kernel = brownianKernel(range(0,7), 0.1);
   auto cholesky = inverseCholesky(kernel);
   auto factor = makeGaussianFactor(cholesky);
 
@@ -169,7 +313,7 @@ TEST_CASE("GaussianFactorTestCompare Brownian", "[factors]") {
 
 TEST_CASE("GaussianFactorTestCompare2 Brownian", "[factors]") {
   // Comparing results to data from another Gaussian Process, only working in x
-  auto kernel = brownianKernel(7, 2);
+  auto kernel = brownianKernel(range(0,7), 2);
   auto cholesky = inverseCholesky(kernel);
   auto factor = makeGaussianFactor(cholesky);
 
@@ -204,4 +348,8 @@ TEST_CASE("GaussianFactorTestCompare2 Brownian", "[factors]") {
     REQUIRE(abs(margin.marginalCovariance(Symbol('x', i))(1,1) - trueVar2[i]) < small);
     REQUIRE(abs(margin.marginalCovariance(Symbol('x', i))(2,2) - trueVar2[i]) < small);
   }
+}
+
+TEST_CASE("Gaussian Conditional", "[factors]") {
+
 }

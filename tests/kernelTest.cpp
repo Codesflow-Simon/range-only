@@ -10,7 +10,7 @@ using namespace std;
 TEST_CASE ("BrownianKernel test", "[kernels]") {
     int size=11;
     double sigma = 1.3;
-    auto kernel = brownianKernel(size, sigma);
+    auto kernel = brownianKernel(range(0,size), sigma);
     for (int i=0; i<size; i++) {
         for (int j=0; j<11; j++) {
             REQUIRE((kernel(i,j) - min(i+1,j+1) * sigma*sigma) < small);
@@ -23,7 +23,7 @@ TEST_CASE ("rbfKernel test", "[kernels]") {
     int size=11;
     double sigma = 1.3;
     double length = 1.43;
-    auto kernel = rbfKernel(size, sigma, length);
+    auto kernel = rbfKernel(range(0,size), sigma, length);
     for (int i=0; i<size; i++) {
         for (int j=0; j<11; j++) {
             REQUIRE((kernel(i,j) - sigma * sigma * exp(-pow(abs(i-j),2)/(2*pow(length,2)))) < small);
@@ -31,7 +31,7 @@ TEST_CASE ("rbfKernel test", "[kernels]") {
         }
     }
 
-    auto kernel5 = rbfKernel(5,1,1);
+    auto kernel5 = rbfKernel(range(0,5),1,1);
 
     Eigen::Matrix<double,5,5> mat;
     mat <<

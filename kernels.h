@@ -100,7 +100,7 @@ Eigen::MatrixXd brownianKernel(VectorXd indicies, double sigma) {
  * @param double lengthScale, increase to make smoother
  * @return double covariance
 */
-double linearKernelFunction(double a, double b, double sigma, double zero_sigma=0, double x_int=0) {
+double linearKernelFunction(double a, double b, double sigma, double zero_sigma=0.1, double x_int=0) {
   return  zero_sigma * zero_sigma + sigma * sigma * (a-x_int) * (b-x_int);  // Using 1 indexing to avoid zeros making the matrix singular with zeros in first row
 }
 
@@ -110,13 +110,44 @@ double linearKernelFunction(double a, double b, double sigma, double zero_sigma=
  * @param double sigma, will pass to linearKernelFunction
  * @return Eigen::MatrixXd kernel matrix
 */
-Eigen::MatrixXd linearKernel(VectorXd indicies, double sigma, double zero_sigma=0, double x_int=0) {
+Eigen::MatrixXd linearKernel(VectorXd indicies, double sigma, double zero_sigma=0.1, double x_int=0) {
   auto mat = Eigen::MatrixXd(indicies.size(), indicies.size()); 
   for (int i=0; i<indicies.size(); i++) {
     for (int j=0; j<indicies.size(); j++) {
       double a = indicies[i];
       double b = indicies[j];
       mat(i,j) = linearKernelFunction(a,b,sigma,zero_sigma, x_int);
+    }
+  }
+  return mat;
+} 
+
+/**
+ * @brief function of the arcsin motion kernel for gaussian processes (https://math.stackexchange.com/questions/1273437/brownian-motion-and-covariance)
+ * @param int a, first index
+ * @param int b, second index
+ * @param int sigma, scales output by sigma^2
+ * @param double lengthScale, increase to make smoother
+ * @return double covariance
+*/
+double arcsinKernelFunction(double a, double b, double sigma, double zero_sigma=0, double x_int=0) {
+  double variance = sigma * sigma;
+  return  2 / M_PI * asin((2 * linearKernelFunction(a,b,sigma)) / sqrt((1 + linearKernelFunction(a,a,sigma)) * (1 + linearKernelFunction(b,b,sigma))));  // Using 1 indexing to avoid zeros making the matrix singular with zeros in first row
+}
+
+/**
+ * @brief will fetch a square matrix of dimension `size + 1` using the arcsinKernelFunction to generate covariances
+ * @param VectorXd indicies
+ * @param double sigma, will pass to arcsinKernelFunction
+ * @return Eigen::MatrixXd kernel matrix
+*/
+Eigen::MatrixXd arcsinKernel(VectorXd indicies, double sigma, double zero_sigma=0, double x_int=0) {
+  auto mat = Eigen::MatrixXd(indicies.size(), indicies.size()); 
+  for (int i=0; i<indicies.size(); i++) {
+    for (int j=0; j<indicies.size(); j++) {
+      double a = indicies[i];
+      double b = indicies[j];
+      mat(i,j) = arcsinKernelFunction(a+1,b+1,sigma,zero_sigma, x_int);
     }
   }
   return mat;

@@ -1,17 +1,14 @@
 {
-    "timesteps": 500,
+    "timesteps": -1,
     "samplesInterval": 1,
-    "kernelBrownianSigma": 0.15,
-    "kernelLinearSigma": 0.01,
-    "kernelSigma": 2,
-    "kernelLength": 0.5,
-    "numSensors": 5,
+    "kernelSigma": 3,
+    "kernelLength": 2,
+    "numSensors": 15,
     "gaussianMaxWidth": 10,
-    "gaussianOffset": 5,
     "initialization_sigma": 0,
-    
+    "method": "gtsam",
     "increment_sigma": 0.05,
-    "velocity_sigma": 0.001,
+    "velocity_sigma": 0.005,
     "anchorStart_sigma": 4.0,
     "anchorError": 0.1,
     "true_error": 0.1

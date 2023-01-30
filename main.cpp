@@ -15,6 +15,7 @@
 #include <gtsam/geometry/Cal3_S2.h>
 #include <gtsam/sam/RangeFactor.h>
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
+#include <gtsam/nonlinear/ISAM2Params.h>
 
 #include <fstream>
 #include <nlohmann/json.hpp>
@@ -97,10 +98,15 @@ CameraWrapper* getCamera(Pose3 pose) {
   return new CameraEmulator(pose);
 }
 
-int main() {
+int main(int argc, char *argv[]) {
   init_log();
   std::ifstream f("../parameters.json");
   parameters = json::parse(f);
+
+  if (argc == 2) {
+    parameters["timesteps"] = stoi(argv[1]);
+  }
+  assert(parameters["timesteps"] > 0);
 
   Eigen::MatrixXd anchorMatrix = init_anchors();
 
@@ -116,7 +122,10 @@ int main() {
   auto cameras = list<CameraWrapper*>{getCamera(Pose3(Rot3::RzRyRx(0,0     ,0), Point3(0,0,-20))),
                                       getCamera(Pose3(Rot3::RzRyRx(0,M_PI/2,0), Point3(-20,0,0)))};
 
-  ISAM2 isam;
+  // ISAM2Params params(ISAM2GaussNewtonParams(), 0.1, 10, true);
+  ISAM2Params params;
+
+  ISAM2 isam(params);
   Graph graph;
   Values values, estimated_values;
 
@@ -148,17 +157,29 @@ int main() {
       if (i == 0) add_rangeFactors(&graph, sensor, tag, keyTable, distNoise ,true);
       else add_rangeFactors(&graph, sensor, tag, keyTable, distNoise);
       // add_cameraFactors(&graph, cameras, tag, X(i), projNoise);
-
-      // if (i>1) add_naiveBetweenFactors(&graph, X(i-1), X(i), betweenNoise);  
-      // add_trueFactors(&graph, tag, keyTable[tag.ID], true_error, true_noise);
+      // add_trueFactors(&graph, tag, keyTable[tag.ID], parameters["true_error"], true_noise);
     }
-    VectorXd indicies; 
-    if (i<(int)parameters["gaussianMaxWidth"]) indicies = range(0,i);
-    else indicies = range(i-(int)parameters["gaussianMaxWidth"], i);
 
-    cout << indicies << endl;
-    
-    add_gaussianFactors(&graph, i, indicies, parameters["kernelSigma"], parameters["kernelLength"]);
+    if (parameters["method"] == "optimised" || parameters["method"] == "naive") {
+      VectorXd indicies; 
+      int startIndex;
+      if (parameters["method"] == "optimised") {
+        if (i<(int)parameters["gaussianMaxWidth"]) {
+          indicies = range(0,i+1);
+          startIndex = 0;
+        } else  {
+          indicies = range(i-(int)parameters["gaussianMaxWidth"], i+1);
+          startIndex = i-(int)parameters["gaussianMaxWidth"];
+        }
+      } else {
+        indicies = range(0,i+1);
+        startIndex = 0;
+      }
+      
+      add_gaussianFactors(&graph, startIndex, indicies, parameters["kernelSigma"], parameters["kernelLength"]);
+    } else {
+      if (i>1) add_naiveBetweenFactors(&graph, X(i-1), X(i), betweenNoise);  
+    }
 
     write_log("Optimising\n");
 
@@ -172,11 +193,12 @@ int main() {
     data(i,7) = tag.location.y();
     data(i,8) = tag.location.z();
     stop = chrono::high_resolution_clock::now();
-    data(i,9) = duration_cast<chrono::milliseconds>(stop-start).count();
+    data(i,9) = duration_cast<chrono::microseconds>(stop-start).count();
   }
   /*--------- END SAMPLE LOOP ---------*/
   
   values = isam.calculateBestEstimate();
+  write_matrix(range(0,(int)parameters["gaussianMaxWidth"]+1), "covariance");
   write_matrix(isam.getFactorsUnsafe().linearize(values)->jacobian().first, "jacobian");
 
   for (int i=0; i<parameters["timesteps"]; i++) {
@@ -197,7 +219,7 @@ int main() {
   auto residual = tag.location - values.at<Point3>( X((int)parameters["timesteps"]-1) );
 
   cout << "final tag: " << endl << values.at<Point3>( X( (int)parameters["timesteps"]-1 ) ) << endl;
-  cout << "tag: " << endl << tag.location << endl;
+  cout << "actual tag: " << endl << tag.location << endl;
   close_log();
   delete sensor;
   for (auto camera : cameras) delete camera;

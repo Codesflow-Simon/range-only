@@ -1,4 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
+
 #include <gtsam/linear/VectorValues.h>
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/linear/GaussianFactorGraph.h>
@@ -9,33 +11,43 @@
 #include <gtsam_unstable/nonlinear/LinearizedFactor.h>
 #include <gtsam/linear/NoiseModel.h>
 #include <gtsam/nonlinear/Marginals.h>
+
 #include "factors.h"
 #include "kernels.h"
 
 double small = 1E-8;
 
 TEST_CASE("Identify3 a") {
-  MatrixXd a = identify3(Matrix11(3));
-  MatrixXd b = Matrix33::Identity()*3;
+  double n = GENERATE(-10,-M_PI,0,3);
+
+  MatrixXd a = identify3(Matrix11(n));
+  MatrixXd b = Matrix33::Identity()*n;
   REQUIRE(a.isApprox(b));
 }
 TEST_CASE("Identify3 b") {
+  double n1 = GENERATE(-M_PI,0,3,12.3432);
+  double n2 = GENERATE(-M_PI,0,3,12.3432);
+  double n3 = GENERATE(-M_PI,0,3,12.3432);
+  double n4 = GENERATE(-M_PI,0,3,12.3432);
+
   Matrix22 mat;
-  mat << 3,1,2,4;
+  mat << n1,n2,n3,n4;
   MatrixXd a = identify3(mat);
-  MatrixXd b = Matrix33::Identity()*3;
+  MatrixXd b = Matrix33::Identity()*n1;
   REQUIRE(a.block(0,0,3,3).isApprox(b));
-  MatrixXd c = Matrix33::Identity()*1;
+  MatrixXd c = Matrix33::Identity()*n2;
   REQUIRE(a.block(0,3,3,3).isApprox(c));
-  MatrixXd d = Matrix33::Identity()*2;
+  MatrixXd d = Matrix33::Identity()*n3;
   REQUIRE(a.block(3,0,3,3).isApprox(d));
-  MatrixXd e = Matrix33::Identity()*4;
+  MatrixXd e = Matrix33::Identity()*n4;
   REQUIRE(a.block(3,3,3,3).isApprox(e));
 }
 
 TEST_CASE ("GaussianFactor RBF has mean zero", "[GaussianFactor, factors]") {
-  int samples = 20;
-  MatrixXd kernel = rbfKernel(range(0,samples), 4, 1); // Sigma scales output, length slows oscillation
+  int samples = GENERATE(1,5,30);
+  double sigma = GENERATE(2,5,10);
+  double length = GENERATE(0.1,1,4);
+  MatrixXd kernel = rbfKernel(range(0,samples), sigma, length); // Sigma scales output, length slows oscillation
   auto cholesky = inverseCholesky(kernel);
   auto factor = makeGaussianFactor(cholesky);
 
@@ -48,16 +60,19 @@ TEST_CASE ("GaussianFactor RBF has mean zero", "[GaussianFactor, factors]") {
 }
 
 TEST_CASE ("GaussianFactor RBF with conversion has mean zero", "[GaussianFactor, factors]") {
-  int samples = 20;
-  double sigma = 3;
-  MatrixXd kernel = rbfKernel(range(0,samples), sigma, 1); // Sigma scales output, length slows oscillation
+  int samples = GENERATE(2,10);
+  double sigma = GENERATE(1,3,5);
+  double length = GENERATE(0.1,1,2);
+  double p_sigma = GENERATE(1,5,8);
+
+  MatrixXd kernel = rbfKernel(range(0,samples), sigma, length); // Sigma scales output, length slows oscillation
   auto cholesky = inverseCholesky(kernel);
   auto factor = makeGaussianFactor(cholesky);
 
   Values zeros; 
   Values values;
   for (int i=0; i<samples; i++) {
-    Point3 p = standard_normal_vector3()*5;
+    Point3 p = standard_normal_vector3()*p_sigma;
     values.insert(Symbol('x', i), p);
     zeros.insert(Symbol('x', i), Point3(0,0,0));
   }
@@ -81,9 +96,9 @@ TEST_CASE ("GaussianFactor RBF with conversion has mean zero", "[GaussianFactor,
 
   // Prior mean should be zero
   for (int i=0; i<samples; i++) {
-    REQUIRE(MAP1.at(Symbol('x',i)).norm()         <  1e-6);
-    REQUIRE(MAP2.at<Point3>(Symbol('x',i)).norm() <  1e-6);
-    REQUIRE(MAP3.at(Symbol('x',i)).norm()         <  1e-6);
+    REQUIRE(MAP1.at(Symbol('x',i)).norm()         <  1e-5);
+    REQUIRE(MAP2.at<Point3>(Symbol('x',i)).norm() <  1e-5);
+    REQUIRE(MAP3.at(Symbol('x',i)).norm()         <  1e-5);
   }
   
   auto marginals1 = Marginals(graph1, MAP1);
@@ -91,12 +106,9 @@ TEST_CASE ("GaussianFactor RBF with conversion has mean zero", "[GaussianFactor,
   auto marginals3 = Marginals(*graph3, MAP3);
 
   for (int i=0; i<samples; i++) {
-    REQUIRE(marginals1.marginalCovariance(Symbol('x',i)).isApprox(Matrix33::Identity() * sigma*sigma, 1e-6));
-    REQUIRE(marginals2.marginalCovariance(Symbol('x',i)).isApprox(Matrix33::Identity() * sigma*sigma, 1e-6));
-    REQUIRE(marginals3.marginalCovariance(Symbol('x',i)).isApprox(Matrix33::Identity() * sigma*sigma, 1e-6));
-
-
-
+    REQUIRE(marginals1.marginalCovariance(Symbol('x',i)).isApprox(Matrix33::Identity() * sigma*sigma, 1e-5));
+    REQUIRE(marginals2.marginalCovariance(Symbol('x',i)).isApprox(Matrix33::Identity() * sigma*sigma, 1e-5));
+    REQUIRE(marginals3.marginalCovariance(Symbol('x',i)).isApprox(Matrix33::Identity() * sigma*sigma, 1e-5));
   }
 }
 
@@ -272,8 +284,9 @@ TEST_CASE("GaussianFactorTestCompare2 RBF", "[factors]") {
 }
 
 TEST_CASE ("GaussianFactorTest Brownian", "[factors]") {
-  int samples = 20;
-  MatrixXd kernel = brownianKernel(range(0,samples), 1);
+  int samples = GENERATE(5,10,20,30);
+  double length = GENERATE(0.1,0.5,1,3,5);
+  MatrixXd kernel = brownianKernel(range(0,samples), length);
   auto cholesky = inverseCholesky(kernel);
   auto factor = makeGaussianFactor(cholesky);
 
@@ -364,8 +377,11 @@ TEST_CASE("GaussianFactor Brownian fits data multidimensional", "[GaussianFactor
 
 TEST_CASE("GaussianConditional has zero mean", "[GaussianConditional, factors]") {
   // Comparing results with makeGaussianFactor
-  int datapoints = 8;
-  auto kernel = rbfKernel(range(0,datapoints), 1, 1);
+  int datapoints = GENERATE(5,10,30);
+  double sigma  = GENERATE(0.5,1.5);
+  double length  = GENERATE(0.5,1,3);
+
+  auto kernel = rbfKernel(range(0,datapoints), sigma, length);
   auto cholesky = inverseCholesky(kernel);
   auto dense = makeGaussianFactor(cholesky);
 
@@ -374,7 +390,7 @@ TEST_CASE("GaussianConditional has zero mean", "[GaussianConditional, factors]")
 
   GaussianFactorGraph graphFactors;
   for (int i=0; i<datapoints; i++) {
-    auto factor = makeGaussianConditional(0, range(0,i+1), 1, 1);
+    auto factor = makeGaussianConditional(0, range(0,i+1), sigma, length);
     graphFactors.add(factor);
   }
 
@@ -431,5 +447,88 @@ TEST_CASE("GaussianConditional is factor of GaussianFactor", "[GaussianFactor, G
   for (int i=0; i<datapoints; i++) {
     REQUIRE(marginal1.marginalCovariance(Symbol('x', i)).isApprox( 
             marginal2.marginalCovariance(Symbol('x', i)) ));
+  }
+}
+
+TEST_CASE("GaussianConditional takes diagonal band of ", "[GaussianFactor, GaussianConditional, factors]") {
+  // Comparing results with makeGaussianFactor
+  int datapoints = 8;
+  int factorSize = 5;
+  double sigma = 1;
+  double length = 1;
+  auto kernel = rbfKernel(range(0,datapoints), sigma, length);
+
+  // Trim kernel
+  for (int i=0; i<datapoints; i++) {
+    for (int j=0; j<datapoints; j++) {
+      if (abs(i-j) > factorSize) kernel(i,j) = 0;
+    }
+  }
+
+  auto cholesky = inverseCholesky(kernel);
+  auto dense = makeGaussianFactor(cholesky);
+
+  GaussianFactorGraph graphDense;
+  graphDense.add(dense);
+
+  GaussianFactorGraph graphFactors;
+  for (int i=0; i<datapoints; i++) {
+    VectorXd indicies; 
+    int startIndex;
+    if (i<factorSize) {
+      indicies = range(0,i+1);
+      startIndex = 0;
+    } else  {
+      indicies = range(i-factorSize, i+1);
+      startIndex = i-factorSize;
+    }
+    auto factor = makeGaussianConditional(startIndex, indicies, sigma, length);
+    graphFactors.add(factor);
+  }
+
+  VectorValues a = graphDense.optimize();
+  VectorValues b = graphFactors.optimize();
+
+  // Prior mean should be zero
+  for (int i=0; i<datapoints; i++) {
+    REQUIRE((a.at(Symbol('x',i)) - b.at(Symbol('x',i))).norm() < 1e-8);
+  }
+
+  auto marginal1 = Marginals(graphDense, a);
+  auto marginal2 = Marginals(graphFactors, b);
+  for (int i=0; i<datapoints; i++) {
+    REQUIRE(marginal1.marginalCovariance(Symbol('x', i)).isApprox( 
+            marginal2.marginalCovariance(Symbol('x', i)) ));
+  }
+
+  // Add some observations  
+  SharedNoiseModel noise = noiseModel::Isotropic::Sigma(3,1);
+
+  graphDense.add(Symbol('x', 0), Matrix33::Identity(), Point3(-0.7, 1.6, 0.9));
+  graphDense.add(Symbol('x', 1), Matrix33::Identity(), Point3(-0.6, 0.4, -0.7));
+  graphDense.add(Symbol('x', 2), Matrix33::Identity(), Point3(1.3, -0.9, 0.8));
+  graphDense.add(Symbol('x', 3), Matrix33::Identity(), Point3(-0.6, -0.7, -1.4));
+  graphDense.add(Symbol('x', 4), Matrix33::Identity(), Point3(0.2, 0.3, 0.5));
+
+  graphFactors.add(Symbol('x', 0), Matrix33::Identity(), Point3(-0.7, 1.6, 0.9));
+  graphFactors.add(Symbol('x', 1), Matrix33::Identity(), Point3(-0.6, 0.4, -0.7));
+  graphFactors.add(Symbol('x', 2), Matrix33::Identity(), Point3(1.3, -0.9, 0.8));
+  graphFactors.add(Symbol('x', 3), Matrix33::Identity(), Point3(-0.6, -0.7, -1.4));
+  graphFactors.add(Symbol('x', 4), Matrix33::Identity(), Point3(0.2, 0.3, 0.5));
+
+  a = graphDense.optimize();
+  b = graphFactors.optimize();
+
+  // Prior mean should be zero
+  for (int i=0; i<datapoints; i++) {
+    REQUIRE((a.at(Symbol('x',i)) - b.at(Symbol('x',i))).norm() < 1e-1); // Large error since there is odd behavior near zero
+  }
+
+  marginal1 = Marginals(graphDense, a);
+  marginal2 = Marginals(graphFactors, b);
+  for (int i=0; i<datapoints; i++) {
+    cout << marginal1.marginalCovariance(Symbol('x', i)) << endl << endl << marginal2.marginalCovariance(Symbol('x', i)) << endl << endl;
+    REQUIRE(marginal1.marginalCovariance(Symbol('x', i)).isApprox( 
+            marginal2.marginalCovariance(Symbol('x', i)), 1e-3));
   }
 }

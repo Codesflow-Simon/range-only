@@ -74,6 +74,7 @@
         "valarray": "cpp"
     },
     "cSpell.words": [
+        "arcsin",
         "coefs",
         "datapoints",
         "Eigen",
@@ -84,6 +85,7 @@
         "mainpage",
         "Marquardt",
         "matern",
+        "optimised",
         "Optimising",
         "timestep",
         "timesteps"

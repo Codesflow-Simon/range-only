@@ -178,6 +178,9 @@ GaussianConditional makeGaussianConditional(int start, VectorXd indicies, double
   FastVector<pair<Key, gtsam::Matrix>> terms(indicies.size());
 
   MatrixXd covariance = rbfKernel(indicies, kernel_sigma, kernel_length);
+  // MatrixXd covariance = brownianKernel(indicies, kernel_sigma);
+  // MatrixXd covariance = linearKernel(indicies, kernel_sigma, 0.3);
+  // MatrixXd covariance = arcsinKernel(indicies, kernel_sigma);
 
   MatrixXd K_1_1 = covariance.block(0,0,n,n);
   VectorXd K_2_1 = covariance.block(0,n,n,1);
@@ -224,6 +227,11 @@ GaussianConditional makeGaussianConditional(int start, VectorXd indicies, double
 */
 void add_gaussianFactors(Graph* graph, int start, VectorXd indicies, double sigma, double length) {
   auto factor = makeGaussianConditional(start, indicies, sigma, length);
+
+  // MatrixXd covariance = rbfKernel(indicies, sigma, length);
+  // MatrixXd cholesky = inverseCholesky(covariance);
+  // auto factor = makeGaussianFactor(cholesky, start);
+
   Values zeros;
   for (int i=0; i<indicies.size(); i++) {
     zeros.insert(Symbol('x', start+i), Point3(0,0,0));

@@ -10,6 +10,8 @@
 #include <gtsam/linear/GaussianConditional.h>
 #include <gtsam/slam/BetweenFactor.h>
 
+#include <gpmp2/gp/GaussianProcessPriorLinear.h>
+
 #include "cameraEmulator.h"
 #include "sensorEmulator.h"
 #include "logging.h"
@@ -137,6 +139,11 @@ MatrixXd identify3(MatrixXd in) {
     }
   }
   return out;
+}
+
+void add_gpmp2Factor(Graph* graph, Key x1, Key v1, Key v2, Key x2, SharedNoiseModel noise) {
+  auto factor = gpmp2::GaussianProcessPriorLinear(x1, v1, x2, v2, 1, noise);
+  graph->add(factor);
 }
 
 /**

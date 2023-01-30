@@ -34,6 +34,7 @@ typedef chrono::time_point<chrono::high_resolution_clock> Time;
 typedef nlohmann::json json;
 
 using symbol_shorthand::X;
+using symbol_shorthand::V;
 using symbol_shorthand::L;
 using symbol_shorthand::C;
 
@@ -136,6 +137,8 @@ int main(int argc, char *argv[]) {
   for (int i=0; i<(int)parameters["timesteps"] + (int)parameters["gaussianMaxWidth"]; i++) {
     Point3 point = standard_normal_vector3()*parameters["initialization_sigma"];
     values.insert(X(i), point);
+
+    values.insert(V(i), Point3(0,0,0));
   }
 
   Time start;
@@ -151,7 +154,7 @@ int main(int argc, char *argv[]) {
     tag.location += standard_normal_vector3()*parameters["increment_sigma"] + velocity; // Move tag
     write_log("tag: " + tag.to_string_());
 
-    if (i%sampleInterval==0) {
+    if (i%sampleInterval==0 && i!=(int)parameters["timesteps"]-1) {
 
       write_log("adding factors\n");
       if (i == 0) add_rangeFactors(&graph, sensor, tag, keyTable, distNoise ,true);
@@ -177,8 +180,10 @@ int main(int argc, char *argv[]) {
       }
       
       add_gaussianFactors(&graph, startIndex, indicies, parameters["kernelSigma"], parameters["kernelLength"]);
-    } else {
+    } else if(parameters["method"] == "gtsam"){
       if (i>1) add_naiveBetweenFactors(&graph, X(i-1), X(i), betweenNoise);  
+    } else if(parameters["method"] == "gpmp2") {
+      if (i>0) add_gpmp2Factor(&graph, X(i-1), V(i-1), X(i), V(i), betweenNoise);
     }
 
     write_log("Optimising\n");

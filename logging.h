@@ -57,7 +57,7 @@ void write_matrix(MatrixXd mat, string id) {
   matrixLog.close();
 }
 
-typedef Eigen::Matrix<double,3,1> Vector3;
+typedef Eigen::Matrix<double,3,1> Vector3d;
 
  /**
   * Returns key as a human-readable string
@@ -69,8 +69,8 @@ string keyToString(Symbol key) {
  /**
   * Returns vector as a human-readable string
  */
-string vecToString(Vector3 vec) {
-  return "Vector3( " + to_string(vec(0)) + ", " + to_string(vec(1)) + ", " + to_string(vec(2)) + ")";
+string vecToString(Vector3d vec) {
+  return "Vector3d( " + to_string(vec(0)) + ", " + to_string(vec(1)) + ", " + to_string(vec(2)) + ")";
 }
 
 /**
@@ -78,6 +78,6 @@ string vecToString(Vector3 vec) {
  * 
  * @param vector 
  */
-void write_log(Vector3 vector) {
+void write_log(Vector3d vector) {
   debugLog <<  vecToString(vector) << endl;
 }

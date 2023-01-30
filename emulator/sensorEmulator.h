@@ -10,7 +10,7 @@
 using namespace std; 
 using namespace Eigen;
 
-typedef Eigen::Matrix<double,3,1> Vector3;
+typedef Eigen::Matrix<double,3,1> Vector3d;
 
 /**
  * @brief Model of anchor or tag object
@@ -19,7 +19,7 @@ typedef Eigen::Matrix<double,3,1> Vector3;
 class Anchor {
   public:
     string ID;
-    Vector3 location;
+    Vector3d location;
 
     /**
      * @brief Default construction, set ID to empty string and location to zero
@@ -27,7 +27,7 @@ class Anchor {
      */
     Anchor() {
       ID = "";
-      location = Vector3();
+      location = Vector3d();
     }
 
     /**
@@ -36,7 +36,7 @@ class Anchor {
      * @param location_
      * @param ID_ 
      */
-    Anchor(Vector3 location_, string ID_) {
+    Anchor(Vector3d location_, string ID_) {
       location = location_;
       ID = ID_;
     }

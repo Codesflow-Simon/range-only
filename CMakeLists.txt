@@ -15,6 +15,8 @@ find_package(gpmp2 REQUIRED)
 include_directories(${gpmp2_INCLUDE_DIR})
 
 add_subdirectory(emulator)
+add_subdirectory(physical)
+
 
 add_library(libs STATIC "logging.h" "factors.h" "kernels.h")
 set_target_properties(libs PROPERTIES LINKER_LANGUAGE CXX)

@@ -184,8 +184,8 @@ GaussianConditional makeGaussianConditional(int start, VectorXd indicies, double
   int n = indicies.size()-1;
   FastVector<pair<Key, gtsam::Matrix>> terms(indicies.size());
 
-  MatrixXd covariance = rbfKernel(indicies, kernel_sigma, kernel_length);
-  // MatrixXd covariance = brownianKernel(indicies, kernel_sigma);
+  // MatrixXd covariance = rbfKernel(indicies, kernel_sigma, kernel_length);
+  MatrixXd covariance = brownianKernel(indicies, kernel_sigma);
   // MatrixXd covariance = linearKernel(indicies, kernel_sigma, 0.3);
   // MatrixXd covariance = arcsinKernel(indicies, kernel_sigma);
 

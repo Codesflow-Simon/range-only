@@ -103,6 +103,8 @@ int main(int argc, char *argv[]) {
   init_log();
   std::ifstream f("../parameters.json");
   parameters = json::parse(f);
+  std::ifstream g("../path.json");
+  json path = json::parse(g);
 
   if (argc == 2) {
     parameters["timesteps"] = stoi(argv[1]);
@@ -112,8 +114,9 @@ int main(int argc, char *argv[]) {
   Eigen::MatrixXd anchorMatrix = init_anchors();
 
   Anchor tag;
-  tag = Anchor(Point3(0,0,0), "1000"); // Set actual tag location, using tag ID to be 1000
-  Point3 velocity = standard_normal_vector3() * parameters["velocity_sigma"];
+  //  point = Point3( stod((string)path[0]["x"]), stod((string)path[0]["y"]), stod((string)path[0]["z"]) );
+  Point3 point = Point3(0,0,0);
+  tag = Anchor(Point3(point), "1000"); // Set actual tag location, using tag ID to be 1000
 
   Sensor* sensor = getSensor(anchorMatrix);
   keyTable[tag.ID] = X(0);
@@ -151,7 +154,10 @@ int main(int argc, char *argv[]) {
     start = chrono::high_resolution_clock::now();
 
     keyTable[tag.ID] = X(i); // Sets the tag Key for the current index    
-    tag.location += standard_normal_vector3()*parameters["increment_sigma"] + velocity; // Move tag
+    // point = Point3( stod((string)path[i]["x"]), stod((string)path[i]["y"]), stod((string)path[i]["z"]) );
+    point = tag.location + standard_normal_vector3() * parameters["between_sigma"];
+
+    tag.location = point;
     write_log("tag: " + tag.to_string_());
 
     if (i%sampleInterval==0 && i!=(int)parameters["timesteps"]-1) {

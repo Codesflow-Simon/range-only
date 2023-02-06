@@ -9,33 +9,15 @@
 #include <nlohmann/json.hpp>
 
 #include "util.h"
+#include "base.h"
+#include "random_tools.h"
 
 using namespace std;
 using namespace Eigen;
 
 using json = nlohmann::json;
 
-class Anchor {
-    public:
-        string ID;
-        Vector3 location;
-
-        Anchor(Vector3 location_, string ID_) {
-            location = location_;
-            ID = ID_;
-        }
-
-        bool equals(const Anchor& other) const {
-            const string otherID = other.ID;
-            return otherID == ID;
-        }
-};
-
-ostream& operator<<(std::ostream &strm, const Anchor &a) {
-    return strm << "Anchor(\"" << a.ID << "\", x=" << a.location.x() << ", y=" << a.location.y() << ", z=" << a.location.z() << ")";
-}
-
-class Emulator {
+class Emulator : public Sensor {
     private:
         vector<Anchor> anchors;
         vector<Anchor>::iterator it = anchors.begin();
@@ -63,15 +45,6 @@ class Emulator {
             return output;
         }
 
-    vector<double> get_random_vector(Vector3 mean, double isotropic_sigma) {
-        vector<double> out(3);
-        normal_distribution<double> dist = normal_distribution<double>(0, isotropic_sigma);
-        out.at(0) = mean.x() + dist(generator);
-        out.at(1) = mean.y() + dist(generator);
-        out.at(2) = mean.z() + dist(generator);
-        return out;
-    }
-
     public:
         void setAnchor(Anchor anchor) {
             anchors.insert(it, anchor);    
@@ -80,6 +53,11 @@ class Emulator {
 
         vector<Anchor> getAnchors(){
             return anchors;
+        }
+
+        // Change to String-String?
+        map<pair<string,string>,double> sample(Anchor tag) {
+
         }
 
         void setMeasurementError(double sigma) {
@@ -91,8 +69,8 @@ class Emulator {
 
             auto measurement = sample(tag);
             output["id"] = tagID;
-            output["acc"] = get_random_vector(Vector3(0,0,9.81), 0.2);
-            output["gyro"] = get_random_vector(Vector3(0,0,0), 0.2);
+            output["acc"] = {0,0,-9.81};
+            output["gyro"] = {0.0, 0.0, 0.0};
             output["mag"] = {0, 0, 21};
             output["ts"] = (double)time;
 
@@ -135,8 +113,7 @@ class Emulator {
                 auto ids = vector<string>();
                 vector<string>::iterator it = ids.begin();
                 for (auto const& anchor: anchors) {
-                    if (anchor.equals(subject))
-                        {continue;}
+                    if (anchor == subject) continue;
                     ids.insert(it, anchor.ID);
                     it = ids.end();
                 }
@@ -160,11 +137,5 @@ class Emulator {
 };
 
 Vector3 addAnchorNoise(Vector3 anchor, double sigma) {
-    default_random_engine generator;
-    auto dist = normal_distribution<double>(0, sigma);
-    double x = dist(generator);
-    double y = dist(generator);
-    double z = dist(generator);
-    auto noise = Vector3(x,y,z);
-    return anchor + noise;
+    return anchor + sigma * standard_normal_vector3();
 }

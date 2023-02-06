@@ -1,5 +1,4 @@
-#include "sensorEmulator.h" 
-#include "cameraEmulator.h" 
+#include "emulator.h" 
 #include "logging.h"
 #include "factors.h"
 #include "kernels.h"
@@ -53,24 +52,12 @@ auto betweenNoise = gtsam::noiseModel::Isotropic::Sigma(3,0.1);
 auto true_noise = gtsam::noiseModel::Isotropic::Sigma(3,0.1);
 
 /**
- * @brief Builds a matrix of the position of anchors using random numbers
- * @return Eigen::MatrixXd matrix of the anchors positions
- */
-Eigen::MatrixXd init_anchors() {
-  Eigen::MatrixXd anchors = MatrixXd::Zero(parameters["numSensors"],3);
-  for (int i=0; i<parameters["numSensors"]; i++) {
-    anchors.row(i) = standard_normal_vector3()*parameters["anchorStart_sigma"];
-  }
-  return anchors;
-}
-
-/**
  * @brief Get the Emulator and sets anchor position with provided matrix
  * @param Eigen::MatrixXd anchors, list of anchor positions to set
  * @return Sensor* pointer to sensor 
  */
 Sensor* getSensor(Eigen::MatrixXd anchors) {
-  SensorEmulator* sensor = new SensorEmulator();
+  Sensor* sensor = new Emulator();
 
   assert(anchors.size()>0);
 

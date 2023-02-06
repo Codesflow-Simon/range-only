@@ -11,19 +11,13 @@ find_package(GTSAMCMakeTools)
 
 find_package(nlohmann_json)
 
-find_package(gpmp2 REQUIRED)
+find_package(gpmp2)
 include_directories(${gpmp2_INCLUDE_DIR})
 
-add_subdirectory(emulator)
-add_subdirectory(physical)
+add_subdirectory(sensor)
 
-
-add_library(libs STATIC "logging.h" "factors.h" "kernels.h")
-set_target_properties(libs PROPERTIES LINKER_LANGUAGE CXX)
-target_link_libraries(libs PUBLIC gtsam gtsam_unstable emulator gpmp2)
-
-add_executable(main "main.cpp")
-target_link_libraries(main PUBLIC gtsam gtsam_unstable nlohmann_json libs emulator)
+add_executable(main "src/main.cpp")
+target_link_libraries(main PUBLIC gtsam gtsam_unstable nlohmann_json libs physical base)
 
 set (testing 1)
 if(testing)

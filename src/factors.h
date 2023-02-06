@@ -12,8 +12,6 @@
 
 #include <gpmp2/gp/GaussianProcessPriorLinear.h>
 
-#include "cameraEmulator.h"
-#include "sensorEmulator.h"
 #include "logging.h"
 #include "kernels.h"
 
@@ -42,8 +40,8 @@ void add_priors(Graph* graph, Values* values, Eigen::MatrixXd anchors, SharedNoi
   // Anchors
   for (int i=0; i<anchors.rows(); i++) {
     write_log("adding anchor" + to_string(i) + "\n" );
-    graph->addPrior(Symbol('l', i), (Point3) (anchors.row(i).transpose() + standard_normal_vector3()*anchorError), anchorNoise);
-    values->insert(Symbol('l', i), (Point3) (anchors.row(i).transpose() + standard_normal_vector3()*anchorError));
+    graph->addPrior(Symbol('l', i), (Point3) (anchors.row(i).transpose()), anchorNoise);
+    values->insert(Symbol('l', i), (Point3) (anchors.row(i).transpose()));
   }
 
   // Cameras
@@ -245,17 +243,4 @@ void add_gaussianFactors(Graph* graph, int start, VectorXd indicies, double sigm
   }
   auto linearFactor = LinearContainerFactor(factor, zeros);
   graph->add(linearFactor);
-}
-
-/**
- * @brief Gets data directly from the simulated tag
- * @param Graph* graph to write to
- * @param Anchor tag, to get location
- * @param Key key of tag
- * @param error, error to introduce to model
- * @param SharedNoiseModel noise model
-*/
-void add_trueFactors(Graph* graph, Anchor tag, Key tagKey, double error, SharedNoiseModel true_noise) {
-  Point3 data = tag.location + standard_normal_vector3() * error;
-  graph->addPrior(tagKey, data, true_noise);
 }

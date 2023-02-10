@@ -1,8 +1,8 @@
+#pragma once
+
 #include <random>
 #include <iostream>
 #include <Eigen/Dense>
-
-#pragma once
 
 using namespace std;
 

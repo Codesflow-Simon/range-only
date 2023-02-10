@@ -1,8 +1,10 @@
-#include <Eigen/Dense>
+#pragma once
+
+#include <gtsam/3rdparty/Eigen/Eigen/Dense>
 #include <math.h>
 #include <map>
 #include <vector>
-#include <fstream>      // std::ofstream
+#include <fstream>
 #include <random>
 
 using namespace Eigen;

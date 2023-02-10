@@ -1,3 +1,4 @@
+
 #include <termios.h> // Contains POSIX terminal control definitions
 #include <iostream>
 #include <fstream>
@@ -6,10 +7,10 @@
 #include <list>
 #include <nlohmann/json.hpp>
 
-using json = nlohmann::json;
-using namespace std;
+#include "base.h"
+#include "dataEmulator.h"
 
-class Sensor {
+class RealSource : public DataSource {
   public:
     list<json> getJsonList(unsigned int num) {
       list<json> output;
@@ -100,4 +101,4 @@ class Sensor {
       }
       file.close();
     }
-};
+}

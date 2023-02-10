@@ -1,12 +1,14 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-#include <Eigen/Dense>
-#include "gtsam/inference/Symbol.h"
+#include <gtsam/3rdparty/Eigen/Eigen/Dense>
+#include <gtsam/inference/Symbol.h>
 
 #pragma once
 
 using namespace std;
+using namespace Eigen;
+using namespace gtsam;
 
 ofstream debugLog;
 int matrix = 0;

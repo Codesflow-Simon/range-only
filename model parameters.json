@@ -1,0 +1,8 @@
+{
+    "kernelSigma": 3,
+    "kernelLength": 2,
+    "gaussianMaxWidth": 20,
+    "method": "optimised",
+    "maxSensors": 20,
+    "initialization_sigma": 0.01
+}

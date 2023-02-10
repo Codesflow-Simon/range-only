@@ -1,5 +1,7 @@
+#pragma once
+
 #include <iostream>
-#include <Eigen/Dense>
+#include <gtsam/3rdparty/Eigen/Eigen/Dense>
 #include <list>
 #include <map>
 
@@ -7,13 +9,15 @@
 #include <gtsam/geometry/Cal3_S2.h>
 #include <gtsam/geometry/Point2.h>
 #include <gtsam/geometry/Point3.h>
+#include <gtsam/inference/Key.h>
 
-#pragma once
+#include <nlohmann/json.hpp>
 
 using namespace std; 
 using namespace Eigen;
 using namespace gtsam;
 
+typedef nlohmann::json json;
 typedef Eigen::Matrix<double,3,1> Vector3d;
 typedef PinholeCamera<Cal3_S2> Camera;
 
@@ -87,10 +91,10 @@ class Anchor {
 /**
  * @brief a generic template for both the sensor emulator and physical sensors
 */
-class Sensor {
-    public:
-      virtual map<pair<string,string>,double> sample(Anchor tag) = 0;
-      virtual map<pair<string,string>,double> sampleA2a() = 0;
+class DataSource {    
+  public:
+    virtual json getJson();
+    virtual json sampleA2a();
 };
 
 /**

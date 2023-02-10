@@ -1,0 +1,8 @@
+{
+    "timesteps": 10,
+    "numSensors": 8,
+    "between_sigma": 0.1,
+    "anchorStart_sigma": 4.0,
+    "anchorError": 0.1,
+    "true_error": 0.1
+}

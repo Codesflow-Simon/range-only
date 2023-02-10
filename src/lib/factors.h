@@ -10,10 +10,11 @@
 #include <gtsam/linear/GaussianConditional.h>
 #include <gtsam/slam/BetweenFactor.h>
 
-#include <gpmp2/gp/GaussianProcessPriorLinear.h>
-
 #include "logging.h"
 #include "kernels.h"
+#include "sensor.h"
+
+#include "base.h"
 
 using namespace std;
 using namespace gtsam;
@@ -33,8 +34,7 @@ typedef PinholeCamera<Cal3_S2> Camera;
  * @param list<CameraWrapper*> just of cameras
  * @param SharedNoiseModel camera noise model
 */
-void add_priors(Graph* graph, Values* values, Eigen::MatrixXd anchors, SharedNoiseModel anchorNoise, 
-  list<CameraWrapper*> cameras, SharedNoiseModel cameraNoise, SharedNoiseModel tagPriorNoise ,double anchorError=0.1) {
+void add_priors(Graph* graph, Values* values, Eigen::MatrixXd anchors, SharedNoiseModel anchorNoise, SharedNoiseModel tagPriorNoise) {
   write_log("adding priors\n");
 
   // Anchors
@@ -44,13 +44,6 @@ void add_priors(Graph* graph, Values* values, Eigen::MatrixXd anchors, SharedNoi
     values->insert(Symbol('l', i), (Point3) (anchors.row(i).transpose()));
   }
 
-  // Cameras
-  int i = 0;
-  for (auto camera : cameras) {
-    graph->addPrior(Symbol('c', i), camera->getCamera()->pose(), cameraNoise);
-    values->insert(Symbol('c', i++), camera->getCamera()->pose());
-  }
-
   // Tag, assume the GP will fill in the value
   graph->addPrior(Symbol('x', 0), (Point3) (Point3(0,0,0)), tagPriorNoise);
 }
@@ -58,35 +51,37 @@ void add_priors(Graph* graph, Values* values, Eigen::MatrixXd anchors, SharedNoi
 /**
  * @brief Adds range factors between sensors to the provided graph
  * @param Graph* graph graph to write too
- * @param Sensor* sensor that makes measurements to write too
+ * @param JsonSensor* sensor that makes measurements to write too
  * @param Anchor tag to get location
  * @param map<string,Key> Anchor-key map
  * @param SharedNoiseModel noiseModel
  * @param bool include anchor to anchor (a2a) measurements, this improves accuracy of the location of the anchors, but only need to be done once
 */
-void add_rangeFactors(Graph* graph, Sensor* sensor, Anchor tag, map<string,Key> keyTable, SharedNoiseModel distNoise, bool include_a2a=false) {
+void add_rangeFactors(Graph* graph, JsonSensor* sensor , SharedNoiseModel distNoise, bool include_a2a=false) {
   // Samples from sensors
-  map<pair<Anchor,Anchor>,double> sample = sensor->sample(tag);
+  map<pair<string,string>,double> sample = sensor->sample();
+
+  map<string,unsigned long int> keyTable = sensor->getKeyTable();
 
   // A2a measurements
   if (include_a2a) {
-    map<pair<Anchor,Anchor>,double> A2asample = sensor->sampleA2a();
+    map<pair<string,string>,double> A2asample = sensor->sampleA2a();
     sample.insert(A2asample.begin(), A2asample.end()); 
     // sample.merge(A2asample);
   }
   
-  for (auto pair : sample) {  // ID-measurement pair from sample
-    std::pair<Anchor,Anchor> anchorPair = pair.first;
+  for (auto meas : sample) {  // ID-measurement pair from sample
+    std::pair<string,string> measIDs = meas.first;
 
-    Key keyA = keyTable[anchorPair.first.ID];
-    Key keyB = keyTable[anchorPair.second.ID];
+    Key keyA = keyTable[measIDs.first];
+    Key keyB = keyTable[measIDs.second];
     assert(keyA != 0 && keyB != 0);
 
-    auto factor = RangeFactor<Point3>(keyA, keyB, pair.second, distNoise);
+    auto factor = RangeFactor<Point3>(keyA, keyB, meas.second, distNoise);
     graph->add(factor);
 
     write_log("Added DistanceFactor " + keyToString(keyA) + " and " + keyToString(keyB) + " with measurement " + 
-               to_string(pair.second) + "\n Anchor at " + vecToString(anchorPair.second.location) + "\n");
+               to_string(meas.second) + "\n");
   }
 }
 
@@ -139,11 +134,6 @@ MatrixXd identify3(MatrixXd in) {
   return out;
 }
 
-void add_gpmp2Factor(Graph* graph, Key x1, Key v1, Key v2, Key x2, SharedNoiseModel noise) {
-  auto factor = gpmp2::GaussianProcessPriorLinear(x1, v1, x2, v2, 1, noise);
-  graph->add(factor);
-}
-
 /**
  * @brief creates a gaussian process prior
  * @param Matrix cholesky, Cholesky decomposition of inverse covariance
@@ -182,8 +172,8 @@ GaussianConditional makeGaussianConditional(int start, VectorXd indicies, double
   int n = indicies.size()-1;
   FastVector<pair<Key, gtsam::Matrix>> terms(indicies.size());
 
-  // MatrixXd covariance = rbfKernel(indicies, kernel_sigma, kernel_length);
-  MatrixXd covariance = brownianKernel(indicies, kernel_sigma);
+  MatrixXd covariance = rbfKernel(indicies, kernel_sigma, kernel_length);
+  // MatrixXd covariance = brownianKernel(indicies, kernel_sigma);
   // MatrixXd covariance = linearKernel(indicies, kernel_sigma, 0.3);
   // MatrixXd covariance = arcsinKernel(indicies, kernel_sigma);
 

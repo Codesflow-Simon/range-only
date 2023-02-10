@@ -11,13 +11,13 @@ find_package(GTSAMCMakeTools)
 
 find_package(nlohmann_json)
 
-find_package(gpmp2)
-include_directories(${gpmp2_INCLUDE_DIR})
+add_subdirectory(src)
 
-add_subdirectory(sensor)
+# add_executable(jsonDump "src/jsonDump.cpp")
+# target_link_libraries(jsonDump PUBLIC gtsam gtsam_unstable nlohmann_json libs sensor)
 
 add_executable(main "src/main.cpp")
-target_link_libraries(main PUBLIC gtsam gtsam_unstable nlohmann_json libs physical base)
+target_link_libraries(main PUBLIC gtsam gtsam_unstable nlohmann_json libs sensor)
 
 set (testing 1)
 if(testing)

@@ -1,13 +1,17 @@
 
 #include "dataEmulator.h"
+#include "sensor.h"
 #include <fstream>
+#include <nlohmann/json.hpp>
 
 using namespace std;
 
 int main () {
-  Emulator data = Emulator();
+  DataSource* dataSource = new Emulator();
+  JsonSensor* sensor = new JsonSensor(dataSource);
 
-  for(int i=0; i<200; i++) {
-    cout << data.getJson() << endl;
+  sensor->sampleA2a();
+  for(int i=0; i<205; i++) {
+    cout << json(sensor->sample()) << endl;
   }
 }

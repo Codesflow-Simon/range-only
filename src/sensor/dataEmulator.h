@@ -6,6 +6,7 @@
 #include <random>
 #include <string>
 #include <fstream>
+#include <map>
 
 #include <nlohmann/json.hpp>
 
@@ -39,18 +40,19 @@ class Emulator : public DataSource {
     normal_distribution<double> dist;
 
     // Sampling methods
-    vector<double> sampleAsVector(Vector3 tag) {
-      int idx = 0;
-      vector<double> output = vector<double>(anchors.size());
+    map<string, double> sampleAsMap(Vector3 tag, string exclude="") {
+
+      map<string, double> out;
+
       for (auto const& anchor : anchors) {
+        if (anchor.ID == exclude) continue;
+
         double noise = dist(generator);
         double distance = distanceBetween(anchor.location, tag);
 
-        output.at(idx) = distance + noise;
-          
-        idx++;
+        out[anchor.ID] = distance + noise;
       }
-      return output;
+      return out;
     }
 
     // Json construction methods
@@ -67,17 +69,17 @@ class Emulator : public DataSource {
       constructConstants(base);
 
       json meas = json();
-      vector<double> measurement = sampleAsVector(tag);
-
+      map<string,double> measurement = sampleAsMap(tag);
+      
       auto ids = vector<string>();
-      vector<string>::iterator id_it = ids.begin();
-      for (auto const& anchor: anchors) {
-        ids.insert(id_it, anchor.ID);
-        id_it = ids.end();
+      auto measVec = vector<double>();
+      for (auto pair : measurement) {
+        ids.push_back(pair.first);
+        measVec.push_back(pair.second);
       }
 
       meas["a"] = ids;
-      meas["d"] = measurement;      
+      meas["d"] = measVec;      
       (*base)["meas"] = meas;
     }
     
@@ -87,18 +89,17 @@ class Emulator : public DataSource {
       constructConstants(base);           
 
       json meas = json();
-      auto measurement = sampleAsVector(subject.location);
+      auto measurement = sampleAsMap(subject.location, subject.ID);
 
       auto ids = vector<string>();
-      vector<string>::iterator it = ids.begin();
-      for (auto const& anchor: anchors) {
-        if (anchor == subject) continue;
-          ids.insert(it, anchor.ID);
-          it = ids.end();
-        }
+      auto measVec = vector<double>();
+      for (auto pair : measurement) {
+        ids.push_back(pair.first);
+        measVec.push_back(pair.second);
+      }
 
       meas["a"] = ids;
-      meas["d"] = removeZeros(measurement);  
+      meas["d"] = measVec;  
       (*base)["meas"] = meas;
       a2aSent--;
     }

@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
   std::ifstream f("../model parameters.json");
   parameters = json::parse(f);
 
-  DataSource dataSource = Emulator();
+  DataSource* dataSource = new Emulator();
   JsonSensor* sensor = new JsonSensor(dataSource);
 
   ISAM2 isam;

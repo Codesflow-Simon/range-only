@@ -13,11 +13,12 @@ class JsonSensor {
   private:
     map<string, unsigned long int> keyTable;
     string tagID;
-  public:
-    DataSource data;
+    unique_ptr<DataSource> data;
 
-    JsonSensor(DataSource data_) {
-      data = data_;
+  public:
+
+    JsonSensor(DataSource* data_) {
+      data = unique_ptr<DataSource>(data_);
     }
 
     void updateTagKey(long unsigned int i) {
@@ -31,7 +32,7 @@ class JsonSensor {
     map<pair<string,string>, double> sample() {
       map<pair<string,string>, double> out;
 
-      json dataJson = data.getJson();
+      json dataJson = data->getJson();
       string firstID = dataJson["id"];
 
       json meas = dataJson["meas"];
@@ -52,6 +53,6 @@ class JsonSensor {
     }
 
     map<pair<string,string>, double> sampleA2a() {
-      return sampleA2a();
+      return data->getJsonA2a();
     }
 };

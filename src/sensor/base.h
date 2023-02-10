@@ -93,8 +93,8 @@ class Anchor {
 */
 class DataSource {    
   public:
-    virtual json getJson();
-    virtual json sampleA2a();
+    virtual json getJson() = 0;
+    virtual json getJsonA2a() = 0;
 };
 
 /**

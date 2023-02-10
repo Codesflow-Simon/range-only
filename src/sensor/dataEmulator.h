@@ -19,13 +19,11 @@ using json = nlohmann::json;
 
 class Emulator : public DataSource {
   private:
-    std::ifstream f;
     json path;
+    json anchorsJson;
 
     vector<Anchor> anchors;
     vector<Anchor>::iterator it = anchors.begin();
-
-    json parameters;
 
     // State variables
     double error;
@@ -109,6 +107,14 @@ class Emulator : public DataSource {
     Emulator() {
       std::ifstream f("../path.json");
       path = json::parse(f);
+      std::ifstream g("../anchors.json");
+      anchorsJson = json::parse(g);
+
+      for (int i=0; i<8; i++) {
+        string ID = to_string(i);
+        Vector3d loc = Vector3d(anchorsJson[i]["x"], anchorsJson[i]["y"], anchorsJson[i]["z"]);
+        anchors.push_back(Anchor(loc, ID));
+      }
     }
 
     json getJson() {
@@ -124,6 +130,11 @@ class Emulator : public DataSource {
       }
       timeIndex++;
       return output;
+    }
+
+    json getJsonA2a() {
+      sendA2a();
+      return getJson();
     }
 
     void sendA2a() {

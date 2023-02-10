@@ -81,9 +81,8 @@ int main(int argc, char *argv[]) {
     // write_log("tag: " + to_string(sensor->getTag()));
 
     write_log("adding factors\n");
-    if (i == 0) add_rangeFactors(&graph, sensor, sensor->getKeyTable(), distNoise ,true);
-    else add_rangeFactors(&graph, sensor, sensor->getKeyTable(), distNoise);
-    // add_cameraFactors(&graph, cameras, tag, X(i), projNoise);
+    if (i == 0) add_rangeFactors(&graph, sensor, distNoise ,true);
+    else add_rangeFactors(&graph, sensor, distNoise);
 
     if (parameters["method"] == "optimised" || parameters["method"] == "naive") {
       VectorXd indicies; 

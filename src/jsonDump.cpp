@@ -5,9 +5,9 @@
 using namespace std;
 
 int main () {
-  DataSource data = Emulator();
+  Emulator data = Emulator();
 
-  while(true) {
+  for(int i=0; i<200; i++) {
     cout << data.getJson() << endl;
   }
 }

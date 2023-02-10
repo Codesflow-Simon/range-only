@@ -112,7 +112,7 @@ class Emulator : public DataSource {
       anchorsJson = json::parse(g);
 
       for (int i=0; i<8; i++) {
-        string ID = to_string(i);
+        string ID = to_string(i+1000);
         Vector3d loc = Vector3d(anchorsJson[i]["x"], anchorsJson[i]["y"], anchorsJson[i]["z"]);
         anchors.push_back(Anchor(loc, ID));
       }

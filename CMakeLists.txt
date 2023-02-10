@@ -13,11 +13,11 @@ find_package(nlohmann_json)
 
 add_subdirectory(src)
 
-add_executable(jsonDump "src/jsonDump.cpp")
-target_link_libraries(jsonDump PUBLIC gtsam gtsam_unstable nlohmann_json libs sensor)
+# add_executable(jsonDump "src/jsonDump.cpp")
+# target_link_libraries(jsonDump PUBLIC gtsam gtsam_unstable nlohmann_json libs sensor)
 
-# add_executable(main "src/main.cpp")
-# target_link_libraries(main PUBLIC gtsam gtsam_unstable nlohmann_json libs sensor)
+add_executable(main "src/main.cpp")
+target_link_libraries(main PUBLIC gtsam gtsam_unstable nlohmann_json libs sensor)
 
 set (testing 0)
 if(testing)

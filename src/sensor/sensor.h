@@ -2,6 +2,7 @@
 
 #include <list>
 #include <nlohmann/json.hpp>
+#include <gtsam/inference/Symbol.h>
 
 #include "base.h"
 #include "dataEmulator.h"
@@ -14,6 +15,7 @@ class JsonSensor {
     map<string, unsigned long int> keyTable;
     string tagID;
     unique_ptr<DataSource> data;
+    int uniqueInt = 0;
 
   public:
 
@@ -37,8 +39,19 @@ class JsonSensor {
       string firstID = dataJson["id"];
       json meas = dataJson["meas"];
 
+      // key not in map
+      if (keyTable.find(firstID) == keyTable.end()) {
+        keyTable[firstID] = gtsam::Symbol('a', uniqueInt++); // Assigns unique large uli
+      }
+
       for (int i=0; i<meas["a"].size(); i++) {
         string secondID = meas["a"][i];
+
+        // key not in map
+        if (keyTable.find(secondID) == keyTable.end()) {
+          keyTable[secondID] = gtsam::Symbol('a', uniqueInt++); // Assigns unique large uli
+        }
+
         double dist = meas["d"][i];
 
         pair<string,string> pair;

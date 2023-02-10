@@ -36,7 +36,7 @@ using symbol_shorthand::C;
 json parameters;
 Eigen::MatrixXd anchorMatrix;
 
-auto anchorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.1);
+auto anchorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,1.5);
 auto tagPriorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.1);
 auto distNoise =  gtsam::noiseModel::Isotropic::Sigma(1,0.1);
 auto projNoise = gtsam::noiseModel::Isotropic::Sigma(2,0.1);
@@ -54,12 +54,12 @@ int main(int argc, char *argv[]) {
   JsonSensor* sensor = new JsonSensor(dataSource);
 
   ISAM2 isam;
-  Graph graph;
+  Graph graph; // Something is wrong with graph
   Values values, estimated_values;
 
   list<CameraWrapper*> cameras;
   
-  add_priors(&graph, &values, anchorMatrix, anchorNoise, tagPriorNoise);
+  graph.addPrior(Symbol('x', 0), (Point3) (Point3(0,0,0)), tagPriorNoise);
 
   // Need to happen Dynamically
   for (int i=0; i<1000; i++) {
@@ -83,6 +83,12 @@ int main(int argc, char *argv[]) {
     write_log("adding factors\n");
     if (i == 0) add_rangeFactors(&graph, sensor, distNoise ,true);
     else add_rangeFactors(&graph, sensor, distNoise);
+
+    for (auto pair : sensor->getKeyTable()) {
+      if (!values.exists(pair.second))
+      values.insert(pair.second, Point3(0,0,0));
+      graph.addPrior(pair.second, Point3(0,0,0), anchorNoise);
+    }
 
     if (parameters["method"] == "optimised" || parameters["method"] == "naive") {
       VectorXd indicies; 

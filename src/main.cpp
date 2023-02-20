@@ -51,10 +51,10 @@ int main(int argc, char *argv[]) {
   std::ifstream f("../model parameters.json");
   parameters = json::parse(f);\
 
-  std::ifstream g("../anchors.json");
+  std::ifstream g("../data/anchors.json");
   anchors = json::parse(g);
 
-  std::ifstream h("../path.json");
+  std::ifstream h("../data/path.json");
   path = json::parse(h);
 
   DataSource* dataSource = new Emulator();

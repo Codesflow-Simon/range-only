@@ -105,11 +105,12 @@ class Emulator : public DataSource {
     }
 
   public:
-    Emulator() {
-      std::ifstream f("../data/path.json");
+    Emulator(string prefix = "../data/") {
+      std::ifstream f(prefix+"path.json");
       path = json::parse(f);
-      std::ifstream g("../data/anchors.json");
+      std::ifstream g(prefix+"anchors.json");
       anchorsJson = json::parse(g);
+    
 
       for (json anchor : anchorsJson) {
         string ID = anchor["ID"];

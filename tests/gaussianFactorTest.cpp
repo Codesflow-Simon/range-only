@@ -51,7 +51,6 @@ TEST_CASE ("GaussianFactor RBF has mean zero", "[GaussianFactor, factors]") {
   auto cholesky = inverseCholesky(kernel);
   auto factor = makeGaussianFactor(cholesky);
 
-
   VectorValues values;
   for (int i=0; i<samples; i++) values.insert(Symbol('x', i), Point3::Zero());
 

@@ -19,10 +19,10 @@ class JsonSensor {
 
   public:
 
-    JsonSensor(DataSource* data_) {
+    JsonSensor(DataSource* data_, string prefix = "../data/") {
       data = unique_ptr<DataSource>(data_);
 
-      std::ifstream g("../data/anchors.json");
+      std::ifstream g(prefix+"anchors.json");
       json anchorsJson = json::parse(g);
 
       for (json anchor : anchorsJson) {

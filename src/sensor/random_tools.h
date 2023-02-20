@@ -20,3 +20,15 @@ Vector3 standard_normal_vector3() {
   for (int i=0;i<3;i++) vec(i) = standard_normal_generator();
   return vec;
 }
+
+double norm(Vector3 vec) {
+  double sq_x = vec.x() * vec.x();
+  double sq_y = vec.y() * vec.y();
+  double sq_z = vec.z() * vec.z();
+  return sqrt(sq_x + sq_y + sq_z);
+}
+
+double distanceBetween(Vector3 a, Vector3 b) {
+  Vector3 displacement = a - b;
+  return norm(displacement);
+}

@@ -34,13 +34,14 @@ using symbol_shorthand::C;
 
 // Model parameters
 json parameters;
+json anchors;
+json path;
 Eigen::MatrixXd anchorMatrix;
 
-auto anchorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,1.5);
+auto anchorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.001);
 auto tagPriorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.1);
-auto distNoise =  gtsam::noiseModel::Isotropic::Sigma(1,0.1);
-auto projNoise = gtsam::noiseModel::Isotropic::Sigma(2,0.1);
-auto cameraNoise = gtsam::noiseModel::Isotropic::Sigma(6,0.1);
+auto distNoise =  gtsam::noiseModel::Isotropic::Sigma(1,0.01);
+
 auto betweenNoise = gtsam::noiseModel::Isotropic::Sigma(3,0.1);
 auto true_noise = gtsam::noiseModel::Isotropic::Sigma(3,0.1);
 
@@ -48,19 +49,26 @@ int main(int argc, char *argv[]) {
   init_log();
 
   std::ifstream f("../model parameters.json");
-  parameters = json::parse(f);
+  parameters = json::parse(f);\
+
+  std::ifstream g("../anchors.json");
+  anchors = json::parse(g);
+
+  std::ifstream h("../path.json");
+  path = json::parse(h);
 
   DataSource* dataSource = new Emulator();
   JsonSensor* sensor = new JsonSensor(dataSource);
 
-  ISAM2 isam;
+  ISAM2Params params(ISAM2GaussNewtonParams(), 0.50, 50, true);
+  ISAM2 isam(params);
   Graph graph; // Something is wrong with graph
   Values values, estimated_values;
 
   list<CameraWrapper*> cameras;
-  
-  graph.addPrior(Symbol('x', 0), (Point3) (Point3(0,0,0)), tagPriorNoise);
 
+  graph.addPrior(Symbol('x', 0), (Point3) (Point3(0,0,0)), tagPriorNoise);
+  
   // Need to happen Dynamically
   for (int i=0; i<1000; i++) {
     Point3 point = standard_normal_vector3()*parameters["initialization_sigma"];
@@ -70,25 +78,30 @@ int main(int argc, char *argv[]) {
   Time start;
   Time stop;
 
+  int j=0;
+  for (json anchor_json : anchors) {
+    unsigned long int key = anchor_json["key"];
+    Point3 anchor = Point3(anchor_json["x"], anchor_json["y"], anchor_json["z"]);
+    values.insert(key, anchor);
+    graph.addPrior(key, anchor, anchorNoise);
+    j++;
+  }
+
   // Expand dynamically
-  MatrixXd data(1000, 7); // Data to export for analysis
+  MatrixXd data((int)parameters["logging"], 7); // Data to export for analysis
 
   int i=0;
   while (true) {
+    sensor->updateTagKey(X(i));
+    dataSource->updateTimeIndex(i);
+
     write_log("loop " + to_string(i) + "\n");
     start = chrono::high_resolution_clock::now();
 
     // write_log("tag: " + to_string(sensor->getTag()));
 
     write_log("adding factors\n");
-    if (i == 0) add_rangeFactors(&graph, sensor, distNoise ,true);
-    else add_rangeFactors(&graph, sensor, distNoise);
-
-    for (auto pair : sensor->getKeyTable()) {
-      if (!values.exists(pair.second))
-      values.insert(pair.second, Point3(0,0,0));
-      graph.addPrior(pair.second, Point3(0,0,0), anchorNoise);
-    }
+    add_rangeFactors(&graph, sensor, distNoise);
 
     if (parameters["method"] == "optimised" || parameters["method"] == "naive") {
       VectorXd indicies; 
@@ -115,22 +128,23 @@ int main(int argc, char *argv[]) {
 
     auto results = isam.update(graph, values);
 
+    // graph.print();
     graph.resize(0);
     values.clear();
     estimated_values = isam.calculateEstimate();
 
     stop = chrono::high_resolution_clock::now();
-    data(i,9) = duration_cast<chrono::microseconds>(stop-start).count();
+    data(i,6) = duration_cast<chrono::microseconds>(stop-start).count();
 
     i++;
+    if (i == (int)parameters["logging"]) break;
   }
   /*--------- END SAMPLE LOOP ---------*/
   
   values = isam.calculateBestEstimate();
   write_matrix(range(0,(int)parameters["gaussianMaxWidth"]+1), "covariance");
-  write_matrix(isam.getFactorsUnsafe().linearize(values)->jacobian().first, "jacobian");
 
-  for (int i=0; i<parameters["timesteps"]; i++) {
+  for (int i=0; i<(int)parameters["logging"]; i++) {
     Point3 estimate = values.at<Point3>(X(i));
     auto covariance = isam.marginalCovariance(X(i));
 

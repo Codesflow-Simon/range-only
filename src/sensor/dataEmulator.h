@@ -10,7 +10,7 @@
 
 #include <nlohmann/json.hpp>
 
-#include "util.h"
+#include "random_tools.h"
 #include "base.h"
 
 using namespace std;
@@ -27,8 +27,8 @@ class Emulator : public DataSource {
     vector<Anchor>::iterator it = anchors.begin();
 
     // State variables
-    double error;
-    int numData = 200;
+    double error = 0.01;
+    int numData = 1000;
     int a2aSent = -1;
     int timeIndex = 0;
     double time = 0;
@@ -47,7 +47,7 @@ class Emulator : public DataSource {
       for (auto const& anchor : anchors) {
         if (anchor.ID == exclude) continue;
 
-        double noise = dist(generator);
+        double noise = dist(generator) * error;
         double distance = distanceBetween(anchor.location, tag);
 
         out[anchor.ID] = distance + noise;
@@ -111,11 +111,17 @@ class Emulator : public DataSource {
       std::ifstream g("../anchors.json");
       anchorsJson = json::parse(g);
 
-      for (int i=0; i<8; i++) {
-        string ID = to_string(i+1000);
-        Vector3d loc = Vector3d(anchorsJson[i]["x"], anchorsJson[i]["y"], anchorsJson[i]["z"]);
-        anchors.push_back(Anchor(loc, ID));
+      for (json anchor : anchorsJson) {
+        string ID = anchor["ID"];
+        Vector3d loc = Vector3d(anchor["x"], anchor["y"], anchor["z"]);
+        Anchor anc(loc, ID);
+        anc.key = anchor["key"];
+        anchors.push_back(anc);
       }
+    }
+
+    void set_error(double error_) {
+      error = error_;
     }
 
     json getJson() {
@@ -129,8 +135,11 @@ class Emulator : public DataSource {
       } else {
         getA2aData(&output, tag);
       }
-      timeIndex++;
       return output;
+    }
+
+    void updateTimeIndex(int time) {
+      timeIndex = time;
     }
 
     json getJsonA2a() {

@@ -30,6 +30,7 @@ class Anchor {
   public:
     string ID;
     Vector3d location;
+    unsigned long int key;
 
     /**
      * @brief Default construction, set ID to empty string and location to zero
@@ -95,6 +96,7 @@ class DataSource {
   public:
     virtual json getJson() = 0;
     virtual json getJsonA2a() = 0;
+    virtual void updateTimeIndex(int time) {};
 };
 
 /**

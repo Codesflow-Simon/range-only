@@ -25,28 +25,6 @@ typedef PinholeCamera<Cal3_S2> Camera;
 
 /**********************GRAPH ADDERS**************************/
 
-/**
- * @brief Adds priors of the anchor, tag and cameras
- * @param Graph* graph to write too
- * @param Values* values to write too
- * @param Eigen::MatrixXd* matrix of anchor positions
- * @param SharedNoiseModel anchor noise model
- * @param list<CameraWrapper*> just of cameras
- * @param SharedNoiseModel camera noise model
-*/
-void add_priors(Graph* graph, Values* values, Eigen::MatrixXd anchors, SharedNoiseModel anchorNoise, SharedNoiseModel tagPriorNoise) {
-  write_log("adding priors\n");
-
-  // Anchors
-  for (int i=0; i<anchors.rows(); i++) {
-    write_log("adding anchor" + to_string(i) + "\n" );
-    graph->addPrior(Symbol('l', i), (Point3) (anchors.row(i).transpose()), anchorNoise);
-    values->insert(Symbol('l', i), (Point3) (anchors.row(i).transpose()));
-  }
-
-  // Tag, assume the GP will fill in the value
-  graph->addPrior(Symbol('x', 0), (Point3) (Point3(0,0,0)), tagPriorNoise);
-}
 
 /**
  * @brief Adds range factors between sensors to the provided graph
@@ -59,28 +37,24 @@ void add_priors(Graph* graph, Values* values, Eigen::MatrixXd anchors, SharedNoi
 */
 void add_rangeFactors(Graph* graph, JsonSensor* sensor , SharedNoiseModel distNoise, bool include_a2a=false) {
   // Samples from sensors
-  map<pair<string,string>,double> sample = sensor->sample();
-
-  map<string,unsigned long int> keyTable = sensor->getKeyTable();
+  map<pair<Key,Key>,double> sample = sensor->sample();
 
   // A2a measurements
   if (include_a2a) {
-    map<pair<string,string>,double> A2asample = sensor->sampleA2a();
+    map<pair<Key,Key>,double> A2asample = sensor->sampleA2a();
     sample.insert(A2asample.begin(), A2asample.end()); 
     // sample.merge(A2asample);
   }
   
   for (auto meas : sample) {  // ID-measurement pair from sample
-    std::pair<string,string> measIDs = meas.first;
+    std::pair<Key,Key> measKeys = meas.first;
 
-    Key keyA = keyTable[measIDs.first];
-    Key keyB = keyTable[measIDs.second];
-    assert(keyA != 0 && keyB != 0);
+    assert(measKeys.first != 0 && measKeys.second != 0);
 
-    auto factor = RangeFactor<Point3>(keyA, keyB, meas.second, distNoise);
+    auto factor = RangeFactor<Point3>(measKeys.first, measKeys.second, meas.second, distNoise);
     graph->add(factor);
 
-    write_log("Added DistanceFactor " + keyToString(keyA) + " and " + keyToString(keyB) + " with measurement " + 
+    write_log("Added DistanceFactor " + keyToString(measKeys.first) + " and " + keyToString(int(measKeys.second)) + " with measurement " + 
                to_string(meas.second) + "\n");
   }
 }

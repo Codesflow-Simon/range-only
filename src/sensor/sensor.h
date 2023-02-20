@@ -13,7 +13,7 @@ using namespace std;
 class JsonSensor {
   private:
     map<string, unsigned long int> keyTable;
-    string tagID;
+    string tagID = "0b05";
     unique_ptr<DataSource> data;
     int uniqueInt = 0;
 
@@ -21,6 +21,13 @@ class JsonSensor {
 
     JsonSensor(DataSource* data_) {
       data = unique_ptr<DataSource>(data_);
+
+      std::ifstream g("../anchors.json");
+      json anchorsJson = json::parse(g);
+
+      for (json anchor : anchorsJson) {
+        keyTable[anchor["ID"]] = anchor["key"];
+      }
     }
 
     void updateTagKey(long unsigned int i) {
@@ -31,32 +38,22 @@ class JsonSensor {
       return keyTable;
     }
 
-    map<pair<string,string>, double> parseJson(json dataJson) {
-      map<pair<string,string>, double> out;
+    map<pair<Key,Key>, double> parseJson(json dataJson) {
+      map<pair<Key,Key>, double> out;
 
-      if (dataJson == json()) return map<pair<string,string>,double>();
+      if (dataJson == json()) return map<pair<Key,Key>,double>();
 
       string firstID = dataJson["id"];
       json meas = dataJson["meas"];
 
-      // key not in map
-      if (keyTable.find(firstID) == keyTable.end()) {
-        keyTable[firstID] = gtsam::Symbol('a', uniqueInt++); // Assigns unique large uli
-      }
-
       for (int i=0; i<meas["a"].size(); i++) {
         string secondID = meas["a"][i];
 
-        // key not in map
-        if (keyTable.find(secondID) == keyTable.end()) {
-          keyTable[secondID] = gtsam::Symbol('a', uniqueInt++); // Assigns unique large uli
-        }
-
         double dist = meas["d"][i];
 
-        pair<string,string> pair;
-        pair.first = firstID;
-        pair.second = secondID;
+        pair<Key,Key> pair;
+        pair.first = keyTable[firstID];
+        pair.second = keyTable[secondID];
 
         out[pair] = dist; 
       }
@@ -64,12 +61,12 @@ class JsonSensor {
       return out;
     }
 
-    map<pair<string,string>, double> sample() {
+    map<pair<Key,Key>, double> sample() {
       json dataJson = data->getJson();
       return parseJson(dataJson);
     }
 
-    map<pair<string,string>, double> sampleA2a() {
+    map<pair<Key,Key>, double> sampleA2a() {
       json dataJson = data->getJsonA2a();
       return parseJson(dataJson);
     }

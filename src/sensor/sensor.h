@@ -22,7 +22,7 @@ class JsonSensor {
     JsonSensor(DataSource* data_) {
       data = unique_ptr<DataSource>(data_);
 
-      std::ifstream g("../anchors.json");
+      std::ifstream g("../data/anchors.json");
       json anchorsJson = json::parse(g);
 
       for (json anchor : anchorsJson) {

@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
   init_log();
 
   std::ifstream f("../model parameters.json");
-  parameters = json::parse(f);\
+  parameters = json::parse(f);
 
   std::ifstream g("../data/anchors.json");
   anchors = json::parse(g);

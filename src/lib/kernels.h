@@ -1,6 +1,6 @@
 #include <math.h>
-#include <Eigen/Dense>
-#include <Eigen/Cholesky>
+#include <gtsam/3rdparty/Eigen/Eigen/Dense>
+#include <gtsam/3rdparty/Eigen/Eigen/Cholesky>
 
 #pragma once
 

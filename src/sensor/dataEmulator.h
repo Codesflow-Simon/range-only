@@ -40,7 +40,7 @@ class Emulator : public DataSource {
     normal_distribution<double> dist;
 
     // Sampling methods
-    map<string, double> sampleAsMap(Vector3 tag, string exclude="") {
+    map<string, double> sampleAsMap(Vector3d tag, string exclude="") {
 
       map<string, double> out;
 
@@ -64,7 +64,7 @@ class Emulator : public DataSource {
       (*base)["ts"] = (double)time;
     }
 
-    void getTagData(json* base, Vector3 tag) {
+    void getTagData(json* base, Vector3d tag) {
 
       constructConstants(base);
 
@@ -83,7 +83,7 @@ class Emulator : public DataSource {
       (*base)["meas"] = meas;
     }
     
-    void getA2aData(json* base, Vector3 tag) {
+    void getA2aData(json* base, Vector3d tag) {
       Anchor subject = anchors.at(a2aSent);
 
       constructConstants(base);           
@@ -127,7 +127,7 @@ class Emulator : public DataSource {
 
     json getJson() {
       if (timeIndex >= numData) return json();
-      Vector3 tag = Vector3( stod((string)path[timeIndex]["x"]), stod((string)path[timeIndex]["y"]), 
+      Vector3d tag = Vector3d( stod((string)path[timeIndex]["x"]), stod((string)path[timeIndex]["y"]), 
                              stod((string)path[timeIndex]["z"]) );
 
       json output = json();

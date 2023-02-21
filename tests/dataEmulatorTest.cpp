@@ -25,12 +25,12 @@ TEST_CASE("Data Emulator 1") {
 
         REQUIRE(data["id"] == tagID);
 
-        Vector3 tag = Vector3( stod((string)path[i]["x"]), stod((string)path[i]["y"]), 
+        Vector3d tag = Vector3d( stod((string)path[i]["x"]), stod((string)path[i]["y"]), 
                                stod((string)path[i]["z"]) );
         
         int j=0;
         while (j < data["meas"]["a"].size()) {
-            Vector3 anchor = Vector3( anchors[j]["x"], anchors[j]["y"], anchors[j]["z"] );
+            Vector3d anchor = Vector3d( anchors[j]["x"], anchors[j]["y"], anchors[j]["z"] );
             REQUIRE((string)anchors[j]["ID"] == data["meas"]["a"][j]);
             REQUIRE(abs(distanceBetween(tag, anchor) - (double)data["meas"]["d"][j]) < 1e-8);
             j++;
@@ -58,12 +58,12 @@ TEST_CASE("Sensor Emulator comparison test 1") {
 
         REQUIRE(data1["id"] == tagID);
 
-        Vector3 tag = Vector3( stod((string)path[i]["x"]), stod((string)path[i]["y"]), 
+        Vector3d tag = Vector3d( stod((string)path[i]["x"]), stod((string)path[i]["y"]), 
                                stod((string)path[i]["z"]) );
         
         int j=0;
         for(auto pair : data2) {
-            Vector3 anchor = Vector3( anchors[j]["x"], anchors[j]["y"], anchors[j]["z"] );
+            Vector3d anchor = Vector3d( anchors[j]["x"], anchors[j]["y"], anchors[j]["z"] );
 
             REQUIRE((string)anchors[j]["ID"] == data1["meas"]["a"][j]);
             REQUIRE(abs(distanceBetween(tag, anchor) - (double)data1["meas"]["d"][j]) < 1e-8);

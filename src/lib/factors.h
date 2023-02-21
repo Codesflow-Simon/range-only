@@ -130,7 +130,7 @@ JacobianFactor makeGaussianFactor(Eigen::Matrix<double,-1,-1> cholesky, int star
     terms[i] = keyMatrix;
   }
 
-  auto zero = Vector::Zero(3*cholesky.rows());
+  auto zero = VectorXd::Zero(3*cholesky.rows());
   auto factor = JacobianFactor(terms, zero); // No noise (identity), baked into terms
   return factor;
 }

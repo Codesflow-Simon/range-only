@@ -12,7 +12,7 @@ using namespace std;
 
 class JsonSensor {
   private:
-    map<string, unsigned long int> keyTable;
+    map<string, Key> keyTable;
     string tagID = "0b05";
     unique_ptr<DataSource> data;
     int uniqueInt = 0;
@@ -30,12 +30,8 @@ class JsonSensor {
       }
     }
 
-    void updateTagKey(long unsigned int i) {
+    void updateTagKey(Key i) {
       keyTable[tagID] = i;
-    }
-
-    map<string,long unsigned int> getKeyTable() {
-      return keyTable;
     }
 
     map<pair<Key,Key>, double> parseJson(json dataJson) {

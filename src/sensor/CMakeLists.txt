@@ -4,6 +4,7 @@ add_library(
     "${CMAKE_CURRENT_SOURCE_DIR}/base.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/random_tools.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/dataEmulator.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/realSource.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/sensor.h"
 )
 

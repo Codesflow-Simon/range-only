@@ -2,17 +2,17 @@
 
 #include <list>
 #include <nlohmann/json.hpp>
-#include <gtsam/inference/Symbol.h>
 
 #include "base.h"
 #include "dataEmulator.h"
 
 using json = nlohmann::json;
 using namespace std;
+using Key = unsigned long int;
 
 class JsonSensor {
   private:
-    map<string, Key> keyTable;
+    map<string, Key> keyTable; // Could be replaced with a good hash function
     string tagID = "0b05";
     unique_ptr<DataSource> data;
     int uniqueInt = 0;

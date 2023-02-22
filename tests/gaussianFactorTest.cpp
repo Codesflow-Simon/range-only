@@ -12,7 +12,7 @@
 #include <gtsam/linear/NoiseModel.h>
 #include <gtsam/nonlinear/Marginals.h>
 
-#include "factors.h"
+#include "graph_adders.h"
 #include "kernels.h"
 
 double small = 1E-8;

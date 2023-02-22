@@ -9,12 +9,14 @@ using namespace std;
 
 /**
  * @brief Returns the covariance given a Cholesky decomposition of the inverse covariance
+ * !!! Deprecated !!!
  * 
  * @param R Covariance matrix
  * @return Eigen::Matrix upper Cholesky of inverse covariance
  */
 Eigen::MatrixXd inverseCholesky(Eigen::MatrixXd kernel) {
   LLT<MatrixXd> Cholesky(kernel.inverse());
+  cout << "deprecation warning on inverseCholesky" << endl;
   MatrixXd U = Cholesky.matrixU();
   return U;
 }

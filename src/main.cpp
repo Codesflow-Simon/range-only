@@ -1,5 +1,5 @@
 #include "logging.h"
-#include "factors.h"
+#include "graph_adders.h"
 #include "kernels.h"
 
 #include "dataEmulator.h"
@@ -19,14 +19,13 @@
 #include <chrono>
 
 using namespace std::chrono;
-
 using namespace gtsam;
 using namespace std;
 
-typedef NonlinearFactorGraph Graph;
-typedef PinholeCamera<Cal3_S2> Camera;
-typedef chrono::time_point<chrono::high_resolution_clock> Time;
-typedef nlohmann::json json;
+using Graph = NonlinearFactorGraph;
+using Camera = PinholeCamera<Cal3_S2>;
+using Time = chrono::time_point<chrono::high_resolution_clock>;
+using json = nlohmann::json;
 
 // Model parameters
 json parameters;

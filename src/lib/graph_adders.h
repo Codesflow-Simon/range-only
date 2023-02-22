@@ -137,19 +137,22 @@ JacobianFactor makeGaussianFactor(Eigen::Matrix<double,-1,-1> cholesky, int star
 /**
  * @brief creates a conditional gaussian on  https://en.wikipedia.org/wiki/Multivariate_normal_distribution#Conditional_distributions.
  * Using wikipedia notation, we are computing P(x2|x1) or P(Frontal|Parents) where frontal is a single Point3.
+ *
  * @param int start, X-key index to start on
  * @param VectorXd start, X-key index to start on
  * @param double kernel sigma, kernel parameter, see kernel.h
  * @param double kernel length (for RBF), kernel parameter, see kernel.h
+ * @param string cov, covariance function to use, options: "rbf", "brownian", "linear", "arcsin"
 */
-GaussianConditional makeGaussianConditional(int start, VectorXd indicies, double kernel_sigma, double kernel_length) {
+GaussianConditional makeGaussianConditional(int start, VectorXd indicies, double kernel_sigma, double kernel_length, string cov="rbf") {
   int n = indicies.size()-1;
   FastVector<pair<Key, gtsam::Matrix>> terms(indicies.size());
 
-  MatrixXd covariance = rbfKernel(indicies, kernel_sigma, kernel_length);
-  // MatrixXd covariance = brownianKernel(indicies, kernel_sigma);
-  // MatrixXd covariance = linearKernel(indicies, kernel_sigma, 0.3);
-  // MatrixXd covariance = arcsinKernel(indicies, kernel_sigma);
+  MatrixXd covariance;
+  if (cov == "brownian") covariance = brownianKernel(indicies, kernel_sigma);
+  if (cov == "linear") covariance = linearKernel(indicies, kernel_sigma, kernel_length);
+  if (cov == "arcsin") covariance = arcsinKernel(indicies, kernel_sigma);
+  else covariance = rbfKernel(indicies, kernel_sigma, kernel_length);
 
   MatrixXd K_1_1 = covariance.block(0,0,n,n);
   VectorXd K_2_1 = covariance.block(0,n,n,1);
@@ -194,8 +197,8 @@ GaussianConditional makeGaussianConditional(int start, VectorXd indicies, double
  * @param FactorIndices* remove, add factors to remove
  * @param Eigen::Matrix<double,-1,-1>  (upper) cholesky of the inverse covariance matrix for one dimension.
 */
-void add_gaussianFactors(Graph* graph, int start, VectorXd indicies, double sigma, double length) {
-  auto factor = makeGaussianConditional(start, indicies, sigma, length);
+void add_gaussianFactors(Graph* graph, int start, VectorXd indicies, double sigma, double length, string cov="rbf") {
+  auto factor = makeGaussianConditional(start, indicies, sigma, length, cov);
 
   // MatrixXd covariance = rbfKernel(indicies, sigma, length);
   // MatrixXd cholesky = inverseCholesky(covariance);

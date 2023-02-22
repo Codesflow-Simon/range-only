@@ -3,6 +3,7 @@
 #include "kernels.h"
 
 #include "dataEmulator.h"
+#include "realSource.h"
 #include "random_tools.h"
 
 #include <gtsam/nonlinear/ISAM2.h>
@@ -32,7 +33,7 @@ json parameters;
 json anchors;
 json path;
 
-auto anchorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.001);
+auto anchorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.1);
 auto tagPriorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.1);
 auto distNoise =  gtsam::noiseModel::Isotropic::Sigma(1,0.01);
 
@@ -42,16 +43,13 @@ auto true_noise = gtsam::noiseModel::Isotropic::Sigma(3,0.1);
 int main(int argc, char *argv[]) {
   init_log();
 
-  std::ifstream f("../model parameters.json");
+  std::ifstream f("../params.json");
   parameters = json::parse(f);
 
-  std::ifstream g("../data/anchors.json");
+  std::ifstream g("../anchors.json");
   anchors = json::parse(g);
 
-  std::ifstream h("../data/path.json");
-  path = json::parse(h);
-
-  DataSource* dataSource = new Emulator();
+  RealSource* dataSource = new RealSource(parameters["source"]);
   JsonSensor* sensor = new JsonSensor(dataSource);
 
   ISAM2Params params(ISAM2GaussNewtonParams(), 0.50, 50, true);
@@ -91,8 +89,6 @@ int main(int argc, char *argv[]) {
 
     write_log("loop " + to_string(i) + "\n");
     start = chrono::high_resolution_clock::now();
-
-    // write_log("tag: " + to_string(sensor->getTag()));
 
     write_log("adding factors\n");
     add_rangeFactors(&graph, sensor, distNoise);

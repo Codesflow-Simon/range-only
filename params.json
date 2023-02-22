@@ -4,5 +4,7 @@
     "gaussianMaxWidth": 20,
     "method": "optimised",
     "initialization_sigma": 0.0,
-    "logging": 1000
+    "logging": 100,
+    "source": "/dev/ttyUSB0",
+    "baud": 1000000
 }

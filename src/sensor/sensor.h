@@ -19,7 +19,7 @@ class JsonSensor {
 
   public:
 
-    JsonSensor(DataSource* data_, string prefix = "../data/") {
+    JsonSensor(DataSource* data_, string prefix = "../") {
       data = unique_ptr<DataSource>(data_);
 
       std::ifstream g(prefix+"anchors.json");

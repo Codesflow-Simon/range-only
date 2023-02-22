@@ -11,11 +11,17 @@
 #include "dataEmulator.h"
 
 class RealSource : public DataSource {
+  private:
+    const char* port;
   public:
+    RealSource(string port_) {
+      port = port_.c_str();
+    }
+
     list<json> getJsonList(unsigned int num) {
       list<json> output;
 
-      int USB = open("/dev/ttyS4", O_RDWR| O_NOCTTY);
+      int USB = open(port, O_RDWR| O_NOCTTY);
 
       // Settings for serial port
       struct termios tty;
@@ -86,8 +92,13 @@ class RealSource : public DataSource {
       return getJsonList(1).front();
     }
 
+    json getJsonA2a() {
+      sendA2a();
+      return getJsonList(1).front();
+    }
+
     void sendA2a() {
-      int USB = open("/dev/ttyS4", O_RDWR| O_NOCTTY);
+      int USB = open(port, O_RDWR| O_NOCTTY);
       write(USB, &"node a2a 10", 11);
     }
 
@@ -101,4 +112,4 @@ class RealSource : public DataSource {
       }
       file.close();
     }
-}
+};

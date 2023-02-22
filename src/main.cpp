@@ -132,7 +132,6 @@ int main(int argc, char *argv[]) {
   /*--------- END SAMPLE LOOP ---------*/
   
   values = isam.calculateBestEstimate();
-  write_matrix(range(0,(int)parameters["gaussianMaxWidth"]+1), "covariance");
 
   for (int i=0; i<(int)parameters["logging"]; i++) {
     Point3 estimate = values.at<Point3>(Symbol('x',i));

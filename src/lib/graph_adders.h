@@ -27,12 +27,10 @@ typedef PinholeCamera<Cal3_S2> Camera;
 
 
 /**
- * @brief Adds range factors between sensors to the provided graph
+ * @brief Adds range measurements to graph. Will call the sample method of the sensor to get the keys and values of the measurements.
  * @param Graph* graph graph to write too
  * @param JsonSensor* sensor that makes measurements to write too
- * @param Anchor tag to get location
- * @param map<string,Key> Anchor-key map
- * @param SharedNoiseModel noiseModel
+ * @param SharedNoiseModel distance noise
  * @param bool include anchor to anchor (a2a) measurements, this improves accuracy of the location of the anchors, but only need to be done once
 */
 void add_rangeFactors(Graph* graph, JsonSensor* sensor , SharedNoiseModel distNoise, bool include_a2a=false) {
@@ -43,7 +41,6 @@ void add_rangeFactors(Graph* graph, JsonSensor* sensor , SharedNoiseModel distNo
   if (include_a2a) {
     map<pair<Key,Key>,double> A2asample = sensor->sampleA2a();
     sample.insert(A2asample.begin(), A2asample.end()); 
-    // sample.merge(A2asample);
   }
   
   for (auto meas : sample) {  // ID-measurement pair from sample
@@ -60,7 +57,7 @@ void add_rangeFactors(Graph* graph, JsonSensor* sensor , SharedNoiseModel distNo
 }
 
 /**
- * @brief Adds betweenFactor between most recent tag measurements
+ * @brief Adds betweenFactor between most recent tag measurements, creates a Brownian motion model
  * @param Graph* graph graph to write too
  * @param Key previous tag key
  * @param Key this tag key
@@ -72,7 +69,8 @@ void add_naiveBetweenFactors (Graph* graph, Key prevTag, Key tag, SharedNoiseMod
 
 /**
  * @brief Adds projection factors between the tag and camera to the provided graph
- * @param Graph* graph graph to write too
+ * @param Graph* graph graph to write too]
+ * @param list<CameraWrapper*> cameras
  * @param Anchor tag
  * @param Key key of the tag
  * @param SharedNoiseModel noise model
@@ -109,7 +107,7 @@ MatrixXd identify3(MatrixXd in) {
 }
 
 /**
- * @brief creates a gaussian process prior
+ * @brief given a Cholesky creates a gaussian process prior over Keys X(start) to X(start+n) where n is rows/columns of Cholesky
  * @param Matrix cholesky, Cholesky decomposition of inverse covariance
  * @param double coefficient for diagonal of noise model
  * @return JacobianFactor, the factor
@@ -135,8 +133,19 @@ JacobianFactor makeGaussianFactor(Eigen::Matrix<double,-1,-1> cholesky, int star
   return factor;
 }
 /**
- * @brief creates a conditional gaussian on  https://en.wikipedia.org/wiki/Multivariate_normal_distribution#Conditional_distributions.
+ * @brief creates a conditional Gaussian expression for X(start + indicies.length() - 1) which is dependant on all X(start + i) where i < indicies.length() - 1.
+ * Which is staying, given a set of timestamps, the last timestamp is dependant on all other timestamps via the covariance function provided.
+ * 
+
+ * https://en.wikipedia.org/wiki/Multivariate_normal_distribution#Conditional_distributions.
  * Using wikipedia notation, we are computing P(x2|x1) or P(Frontal|Parents) where frontal is a single Point3.
+ * 
+ * Otherwise written P(Xn | X(n-1) X(n-2) ... X0)
+ * 
+ * For example passing indicies = { 10.0 , 11.1 , 12.0 , 13.1 , 14.0 } and start = 21 means:
+ * X(25) {time at t=14.0} is related via covariance function to other indicies:
+ * P(X(25) | X(24) X(23) X(22) X(21)) ~ N(0, h(indicies))
+ * where h is the covariance function (returning the covariance matrix)
  *
  * @param int start, X-key index to start on
  * @param VectorXd start, X-key index to start on
@@ -190,12 +199,11 @@ GaussianConditional makeGaussianConditional(int start, VectorXd indicies, double
 }
 
 /**
- * @brief Creates a gaussian process prior for variables in the X(t) chain. Takes the (upper) cholesky of the inverse covariance matrix. 
- * This matrix should represent the kernel in one dimension, this function copies it into three dimensions.
+ * @brief A non-linear wrapper for makeGaussianConditional
  * @param Graph* graph to write 
- * @param Values* values to write to
- * @param FactorIndices* remove, add factors to remove
- * @param Eigen::Matrix<double,-1,-1>  (upper) cholesky of the inverse covariance matrix for one dimension.
+ * @param int start, passed to makeGaussianConditional
+ * @param double covariance sigma
+ * @param double second parameter to covariance function
 */
 void add_gaussianFactors(Graph* graph, int start, VectorXd indicies, double sigma, double length, string cov="rbf") {
   auto factor = makeGaussianConditional(start, indicies, sigma, length, cov);

@@ -5,6 +5,6 @@
     "method": "optimised",
     "initialization_sigma": 0.0,
     "logging": 100,
-    "source": "/dev/ttyUSB0",
+    "source": "/dev/ttyUSB1",
     "baud": 1000000
 }

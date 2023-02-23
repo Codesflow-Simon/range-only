@@ -12,16 +12,22 @@
 
 class RealSource : public DataSource {
   private:
-    const char* port;
+    string port;
   public:
+    /**
+     * Specify location of device
+    */
     RealSource(string port_) {
-      port = port_.c_str();
+      port = port_;
     }
 
+    /**
+     * Gets jsons received in recent time
+    */
     list<json> getJsonList(unsigned int num) {
       list<json> output;
 
-      int USB = open(port, O_RDWR| O_NOCTTY);
+      int USB = open(port.c_str(), O_RDWR| O_NOCTTY);
 
       // Settings for serial port
       struct termios tty;
@@ -88,20 +94,33 @@ class RealSource : public DataSource {
       return output;
     }
 
+    /**
+     * @brief Gets latest json
+    */
     json getJson() {
       return getJsonList(1).front();
     }
 
+    /**
+     * @brief Gets latest json and sends A2a
+    */
     json getJsonA2a() {
       sendA2a();
       return getJsonList(1).front();
     }
 
+    /**
+     * @brief Sends A2a
+    */
     void sendA2a() {
-      int USB = open(port, O_RDWR| O_NOCTTY);
+      int USB = open(port.c_str(), O_RDWR| O_NOCTTY);
       write(USB, &"node a2a 10", 11);
     }
 
+
+    /**
+     * @brief !! Deprecated !! writes data to serial port
+    */
     void writeData(int num) {
       ofstream file;
       file.open ("sensors.csv");

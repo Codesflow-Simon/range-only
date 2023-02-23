@@ -12,13 +12,15 @@ using Key = unsigned long int;
 
 class JsonSensor {
   private:
-    map<string, Key> keyTable; // Could be replaced with a good hash function
+    map<string, Key> keyTable; // Could be replaced with a good hash function -- needs to manage X(i)'s
     string tagID = "0b05";
     unique_ptr<DataSource> data;
     int uniqueInt = 0;
 
   public:
-
+    /**
+     * @brief Constructor with data source
+    */
     JsonSensor(DataSource* data_, string prefix = "../") {
       data = unique_ptr<DataSource>(data_);
 
@@ -30,10 +32,16 @@ class JsonSensor {
       }
     }
 
+    /**
+     * @brief Keep tag key up to date
+    */
     void updateTagKey(Key i) {
       keyTable[tagID] = i;
     }
 
+    /**
+     * @brief Parses a json from the data source
+    */
     map<pair<Key,Key>, double> parseJson(json dataJson) {
       map<pair<Key,Key>, double> out;
 
@@ -57,11 +65,18 @@ class JsonSensor {
       return out;
     }
 
+
+    /**
+     * @brief required method, gets data
+    */
     map<pair<Key,Key>, double> sample() {
       json dataJson = data->getJson();
       return parseJson(dataJson);
     }
 
+    /**
+     * @brief required method, gets data and sends a2a
+    */
     map<pair<Key,Key>, double> sampleA2a() {
       json dataJson = data->getJsonA2a();
       return parseJson(dataJson);

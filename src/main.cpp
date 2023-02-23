@@ -32,6 +32,7 @@ json parameters;
 json anchors;
 json path;
 
+// Should move the entries to a json file
 auto anchorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.1);
 auto tagPriorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.1);
 auto distNoise =  gtsam::noiseModel::Isotropic::Sigma(1,0.01);
@@ -42,22 +43,32 @@ auto true_noise = gtsam::noiseModel::Isotropic::Sigma(3,0.1);
 int main(int argc, char *argv[]) {
   init_log();
 
+  /**
+   * Import some data files
+  */
   std::ifstream f("../params.json");
   parameters = json::parse(f);
 
   std::ifstream g("../anchors.json");
   anchors = json::parse(g);
 
+  /**
+   * Setup infomation pipeline
+  */
   RealSource* dataSource = new RealSource(parameters["source"]);
   JsonSensor* sensor = new JsonSensor(dataSource);
 
+  /**
+   * Setup numerics
+  */
   ISAM2Params params(ISAM2GaussNewtonParams(), 0.50, 50, true);
   ISAM2 isam(params);
   Graph graph; // Something is wrong with graph
   Values values, estimated_values;
 
-  list<CameraWrapper*> cameras;
-
+  /**
+   * Prior factors and initial solution
+  */
   graph.addPrior(Symbol('x', 0), (Point3) (Point3(0,0,0)), tagPriorNoise);
   
   // Need to happen Dynamically
@@ -78,20 +89,24 @@ int main(int argc, char *argv[]) {
     j++;
   }
 
-  // Expand dynamically
+  /**
+   * Log for data
+  */
   MatrixXd data((int)parameters["logging"], 7); // Data to export for analysis
 
+  /*-------- Begin SAMPLE LOOP --------*/
   int i=0;
   while (true) {
-    sensor->updateTagKey(Symbol('x', i));
-    dataSource->updateTimeIndex(i);
+    sensor->updateTagKey(Symbol('x', i)); // Keep the table pointing to the the current tag
+    dataSource->updateTimeIndex(i); // For emulator only, loops synced
 
     write_log("loop " + to_string(i) + "\n");
     start = chrono::high_resolution_clock::now();
 
     write_log("adding factors\n");
-    add_rangeFactors(&graph, sensor, distNoise);
+    add_rangeFactors(&graph, sensor, distNoise); // Actual measurements
 
+    // "optimised" gives n-Markov approximation of GP, "naive" gives the full GP, "markov" gives markov (Brownian) model 
     if (parameters["method"] == "optimised" || parameters["method"] == "naive") {
       VectorXd indicies; 
       int startIndex;
@@ -110,7 +125,7 @@ int main(int argc, char *argv[]) {
       }
       
       add_gaussianFactors(&graph, startIndex, indicies, parameters["kernelSigma"], parameters["kernelLength"]);
-    } else if(parameters["method"] == "gtsam"){
+    } else if(parameters["method"] == "markov"){
       if (i>1) add_naiveBetweenFactors(&graph, Symbol('x',i-1), Symbol('x',i), betweenNoise);  
     }
     write_log("Optimising\n");
@@ -130,6 +145,9 @@ int main(int argc, char *argv[]) {
   }
   /*--------- END SAMPLE LOOP ---------*/
   
+  /**
+   * Data reporting
+  */
   values = isam.calculateBestEstimate();
 
   for (int i=0; i<(int)parameters["logging"]; i++) {
@@ -147,6 +165,5 @@ int main(int argc, char *argv[]) {
 
   close_log();
   delete sensor;
-  for (auto camera : cameras) delete camera;
 }
 

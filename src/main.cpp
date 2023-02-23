@@ -33,8 +33,9 @@ json parameters;
 json anchors;
 json path;
 
-auto anchorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.1);
-auto tagPriorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.1);
+auto masterAnchorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.1);
+auto anchorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.01);
+auto tagPriorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.3);
 auto distNoise =  gtsam::noiseModel::Isotropic::Sigma(1,0.01);
 
 auto betweenNoise = gtsam::noiseModel::Isotropic::Sigma(3,0.1);
@@ -75,7 +76,10 @@ int main(int argc, char *argv[]) {
     unsigned long int key = anchor_json["key"];
     Point3 anchor = Point3(anchor_json["x"], anchor_json["y"], anchor_json["z"]);
     values.insert(key, anchor);
-    graph.addPrior(key, anchor, anchorNoise);
+    if (anchor != Point3(0,0,0))
+      graph.addPrior(key, anchor, anchorNoise);
+    else
+      graph.addPrior(key, anchor, masterAnchorNoise);
     j++;
   }
 
@@ -118,7 +122,7 @@ int main(int argc, char *argv[]) {
 
     auto results = isam.update(graph, values);
 
-    // graph.print();
+    graph.print();
     graph.resize(0);
     values.clear();
     estimated_values = isam.calculateEstimate();

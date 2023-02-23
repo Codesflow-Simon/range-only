@@ -55,7 +55,11 @@ class Emulator : public DataSource {
       return out;
     }
 
-    // Json construction methods
+    
+    /**
+     * @brief adds some constants to a json
+     * @param json* json to add to
+    */
     void constructConstants(json* base) {
       (*base)["id"] = tagID;
       (*base)["acc"] = {0,0,-9.81};
@@ -64,6 +68,11 @@ class Emulator : public DataSource {
       (*base)["ts"] = (double)time;
     }
 
+    /**
+     * @brief fetches the json including distance measurements to tag
+     * @param json* json to add to
+     * @param tag location of tag to base measurements
+    */
     void getTagData(json* base, Vector3d tag) {
 
       constructConstants(base);
@@ -83,7 +92,11 @@ class Emulator : public DataSource {
       (*base)["meas"] = meas;
     }
     
-    void getA2aData(json* base, Vector3d tag) {
+    /**
+     * @brief fetches the json including distance measurements pairwise between all anchors
+     * @param json* json to add to
+    */
+    void getA2aData(json* base) {
       Anchor subject = anchors.at(a2aSent);
 
       constructConstants(base);           
@@ -105,6 +118,10 @@ class Emulator : public DataSource {
     }
 
   public:
+    /**
+     * @brief constructor with path
+     * @param string path of physical sensors
+    */
     Emulator(string prefix = "../data/") {
       std::ifstream f(prefix+"path.json");
       path = json::parse(f);
@@ -121,10 +138,18 @@ class Emulator : public DataSource {
       }
     }
 
+    /**
+     * @brief sets measurement error
+     * @param string path of physical sensors
+    */
     void set_error(double error_) {
       error = error_;
     }
 
+    /**
+     * @brief required method, get the measurement json from the emulator
+     * @return json
+    */
     json getJson() {
       if (timeIndex >= numData) return json();
       Vector3d tag = Vector3d( stod((string)path[timeIndex]["x"]), stod((string)path[timeIndex]["y"]), 
@@ -134,24 +159,38 @@ class Emulator : public DataSource {
       if (a2aSent==-1) {
         getTagData(&output, tag);
       } else {
-        getA2aData(&output, tag);
+        getA2aData(&output);
       }
       return output;
     }
 
+    /**
+     * @brief use to keep time in sync with the main program
+     * @param int time
+    */
     void updateTimeIndex(int time) {
       timeIndex = time;
     }
 
+    /**
+     * @brief required method, get the measurement json from the emulator and sendsA2a command
+     * @return json
+    */
     json getJsonA2a() {
       sendA2a();
       return getJson();
     }
-
+  
+    /**
+      * @brief sends a2a command
+     */
     void sendA2a() {
       a2aSent = anchors.size()-1;
     }
-
+  
+    /**
+      * @brief undoes any sent a2a
+     */
     void clearA2a() {
       a2aSent = -1;
     }

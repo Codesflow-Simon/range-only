@@ -26,19 +26,18 @@ using Graph = NonlinearFactorGraph;
 using Camera = PinholeCamera<Cal3_S2>;
 using Time = chrono::time_point<chrono::high_resolution_clock>;
 using json = nlohmann::json;
+using Noise = boost::shared_ptr<gtsam::noiseModel::Isotropic>;
 
 // Model parameters
 json parameters;
 json anchors;
 json path;
 
-// Should move the entries to a json file
-auto anchorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.1);
-auto tagPriorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.1);
-auto distNoise =  gtsam::noiseModel::Isotropic::Sigma(1,0.01);
-
-auto betweenNoise = gtsam::noiseModel::Isotropic::Sigma(3,0.1);
-auto true_noise = gtsam::noiseModel::Isotropic::Sigma(3,0.1);
+Noise masterAnchorNoise;
+Noise anchorNoise;
+Noise tagPriorNoise;
+Noise distNoise;
+Noise betweenNoise;
 
 int main(int argc, char *argv[]) {
   init_log();
@@ -53,9 +52,18 @@ int main(int argc, char *argv[]) {
   anchors = json::parse(g);
 
   /**
-   * Setup infomation pipeline
+   * Noise models
   */
-  RealSource* dataSource = new RealSource(parameters["source"]);
+  masterAnchorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,(double)parameters["masterAnchorNoise"]);
+  anchorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,(double)parameters["anchorNoise"]);
+  tagPriorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,(double)parameters["tagPriorNoise"]);
+  distNoise =  gtsam::noiseModel::Isotropic::Sigma(1,(double)parameters["distNoise"]);
+  betweenNoise =  gtsam::noiseModel::Isotropic::Sigma(3,(double)parameters["betweenNoise"]);
+
+  /**
+   * Setup data pipeline
+  */
+  DataSource* dataSource = new Emulator();
   JsonSensor* sensor = new JsonSensor(dataSource);
 
   /**
@@ -136,9 +144,9 @@ int main(int argc, char *argv[]) {
     }
     write_log("Optimising\n");
 
+    graph.print();
     auto results = isam.update(graph, values);
 
-    graph.print();
     graph.resize(0);
     values.clear();
     estimated_values = isam.calculateEstimate();

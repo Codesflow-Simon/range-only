@@ -125,8 +125,8 @@ class Emulator : public DataSource {
      * @brief constructor with path
      * @param string path of physical sensors
     */
-    Emulator(string prefix = "../data/") {
-      std::ifstream f(prefix+"path.json");
+    Emulator(string prefix = "../") {
+      std::ifstream f(prefix+"./data/path.json");
       path = json::parse(f);
       std::ifstream g(prefix+"anchors.json");
       anchorsJson = json::parse(g);

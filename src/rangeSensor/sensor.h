@@ -78,10 +78,9 @@ class JsonSensor {
     }
 
     /**
-     * @brief required method, gets data and sends a2a
+     * @brief sends a2a
     */
-    map<pair<Key,Key>, double> sampleA2a() {
-      json dataJson = data->getJsonA2a();
-      return parseJson(dataJson);
+    void sendA2a() {
+      data->sendA2a();
     }
 };

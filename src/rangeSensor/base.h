@@ -97,7 +97,7 @@ class Anchor {
 class DataSource {    
   public:
     virtual json getJson() = 0;
-    virtual json getJsonA2a() = 0;
+    virtual void sendA2a() = 0;
     virtual void updateTimeIndex(int time) {};
 };
 

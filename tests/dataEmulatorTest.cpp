@@ -4,7 +4,7 @@
 #include <gtsam/3rdparty/Eigen/Eigen/Dense>
 
 #include "dataEmulator.h"
-#include "sensor.h"
+ 
 #include "random_tools.h"
 
 TEST_CASE("Data Emulator 1") {
@@ -40,7 +40,6 @@ TEST_CASE("Data Emulator 1") {
 
 TEST_CASE("Sensor Emulator comparison test 1") {
     Emulator* source = new Emulator("../../data/");
-    JsonSensor* sensor = new JsonSensor(source, "../../data/");
 
     source->set_error(0);
     string tagID = "0b05";
@@ -54,7 +53,7 @@ TEST_CASE("Sensor Emulator comparison test 1") {
     for (int i=0; i<200; i++) {
         source->updateTimeIndex(i);
         json data1 = source->getJson();
-        auto data2 = sensor->sample();
+        auto data2 = source->sample();
 
         REQUIRE(data1["id"] == tagID);
 

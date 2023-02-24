@@ -21,6 +21,7 @@ class RealSource : public DataSource {
      * Specify location of device
     */
     RealSource(string port_) {
+      initKeyTable();
       port = port_;
     }
 

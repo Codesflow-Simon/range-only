@@ -12,7 +12,7 @@
 
 #include "logging.h"
 #include "kernels.h"
-#include "sensor.h"
+ 
 
 #include "base.h"
 
@@ -32,7 +32,7 @@ typedef PinholeCamera<Cal3_S2> Camera;
  * @param JsonSensor* sensor that makes measurements to write too
  * @param SharedNoiseModel distance noise
 */
-void add_rangeFactors(Graph* graph, JsonSensor* sensor , SharedNoiseModel distNoise) {
+void add_rangeFactors(Graph* graph, DataSource* sensor , SharedNoiseModel distNoise) {
   // Samples from sensors
   map<pair<Key,Key>,double> sample = sensor->sample();
   

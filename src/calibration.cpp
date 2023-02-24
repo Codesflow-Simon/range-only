@@ -8,7 +8,9 @@
 #include <gtsam/sam/RangeFactor.h>
 #include <gtsam/geometry/Point3.h>
 
-#include "sensor.h"
+#include "base.h"
+#include "dataEmulator.h"
+#include "realSource.h"
 #include "logging.h"
 
 using namespace std;
@@ -22,10 +24,11 @@ Noise anchorNoise;
 Noise tagPriorNoise;
 Noise distNoise;
 
-Eigen::Matrix<double, 5, 3> calibrate(JsonSensor* sensor) {
+Eigen::Matrix<double, 5, 3> calibrate(DataSource* sensor) {
   // Todo, save calibration
   json data = sensor->sample();
-  const int numAnchors = data["meas"]["d"].size();
+  cout << data << endl;
+  const int numAnchors = (data["meas"]["d"]).size();
   const string tagID = data["id"];
   const vector<string> anchorIDs = data["meas"]["a"];
 
@@ -103,7 +106,6 @@ int main(int argc, char *argv[]) {
   init_log();
 
   DataSource* dataSource = new Emulator();
-  JsonSensor* sensor = new JsonSensor(dataSource);
 
-  calibrate(sensor);
+  calibrate(dataSource);
 }

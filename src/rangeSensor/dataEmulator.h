@@ -126,6 +126,7 @@ class Emulator : public DataSource {
      * @param string path of physical sensors
     */
     Emulator(string prefix = "../") {
+      initKeyTable();
       std::ifstream f(prefix+"./data/path.json");
       path = json::parse(f);
       std::ifstream g(prefix+"anchors.json");

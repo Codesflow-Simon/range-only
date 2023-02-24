@@ -62,8 +62,7 @@ int main(int argc, char *argv[]) {
   /**
    * Setup data pipeline
   */
-  DataSource* dataSource = new Emulator();
-  JsonSensor* sensor = new JsonSensor(dataSource);
+  DataSource* source = new Emulator();
 
   /**
    * Setup numerics
@@ -110,14 +109,14 @@ int main(int argc, char *argv[]) {
   /*-------- Begin SAMPLE LOOP --------*/
   int i=0;
   while (true) {
-    sensor->updateTagKey(Symbol('x', i)); // Keep the table pointing to the the current tag
-    dataSource->updateTimeIndex(i); // For emulator only, loops synced
+    source->updateTagKey(Symbol('x', i)); // Keep the table pointing to the the current tag
+    source->updateTimeIndex(i); // For emulator only, loops synced
 
     write_log("loop " + to_string(i) + "\n");
     start = chrono::high_resolution_clock::now();
 
     write_log("adding factors\n");
-    add_rangeFactors(&graph, sensor, distNoise); // Actual measurements
+    add_rangeFactors(&graph, source, distNoise); // Actual measurements
 
     // "optimised" gives n-Markov approximation of GP, "naive" gives the full GP, "markov" gives markov (Brownian) model 
     if (parameters["method"] == "optimised" || parameters["method"] == "naive") {
@@ -177,6 +176,6 @@ int main(int argc, char *argv[]) {
   write_matrix(data, "data"); // Writes recorded data to file
 
   close_log();
-  delete sensor;
+  delete source;
 }
 

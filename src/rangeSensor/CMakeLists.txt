@@ -1,6 +1,6 @@
 
 add_library(
-    sensor "dataEmulator.h" "realSource.h" "sensor.h" "base.h"
+    sensor "dataEmulator.h" "realSource.h" "base.h"
 )
 
 set_target_properties(sensor PROPERTIES LINKER_LANGUAGE CXX)

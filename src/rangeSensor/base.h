@@ -95,10 +95,69 @@ class Anchor {
  * @brief a generic template for a sensor that makes measurements using JSON objects
 */
 class DataSource {    
+  private:
+    map<string, Key> keyTable; // Could be replaced with a good hash function -- needs to manage X(i)'s
+    string tagID = "0b05";
+
   public:
     virtual json getJson() = 0;
     virtual void sendA2a() = 0;
     virtual void updateTimeIndex(int time) {};
+
+    /**
+     * @brief Constructor with data source
+    */
+    void initKeyTable(string prefix = "../") {
+
+      std::ifstream g(prefix+"anchors.json");
+      json anchorsJson = json::parse(g);
+
+      for (json anchor : anchorsJson) {
+        keyTable[anchor["ID"]] = anchor["key"];
+      }
+    }
+
+    /**
+     * @brief Keep tag key up to date
+    */
+    void updateTagKey(Key i) {
+      keyTable[tagID] = i;
+    }
+
+    /**
+     * @brief Parses a json from the data source
+    */
+    map<pair<Key,Key>, double> parseJson(json dataJson) {
+      map<pair<Key,Key>, double> out;
+
+      if (dataJson == json()) return map<pair<Key,Key>,double>();
+
+      string firstID = dataJson["id"];
+      json meas = dataJson["meas"];
+
+      for (int i=0; i<meas["a"].size(); i++) {
+        string secondID = meas["a"][i];
+
+        double dist = meas["d"][i];
+
+        pair<Key,Key> pair;
+        pair.first = keyTable[firstID];
+        pair.second = keyTable[secondID];
+
+        out[pair] = dist; 
+      }
+
+      return out;
+    }
+
+
+    /**
+     * @brief required method, gets data
+    */
+    map<pair<Key,Key>, double> sample() {
+      json dataJson = getJson();
+      return parseJson(dataJson);
+    }
 };
 
 /**

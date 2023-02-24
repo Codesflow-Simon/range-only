@@ -71,7 +71,10 @@
         "stop_token": "cpp",
         "*.ipp": "cpp",
         "ranges": "cpp",
-        "valarray": "cpp"
+        "valarray": "cpp",
+        "any": "cpp",
+        "codecvt": "cpp",
+        "forward_list": "cpp"
     },
     "cSpell.words": [
         "arcsin",

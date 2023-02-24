@@ -11,5 +11,6 @@
     "anchorNoise": 0.1,
     "tagPriorNoise": 5,
     "distNoise": 0.1,
+    "calibration_steps": 0.1
 
 }

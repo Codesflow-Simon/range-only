@@ -1,10 +1,6 @@
 
 add_library(
-    sensor
-    "${CMAKE_CURRENT_SOURCE_DIR}/random_tools.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/dataEmulator.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/realSource.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/sensor.h"
+    sensor "dataEmulator.h" "realSource.h" "sensor.h" "base.h"
 )
 
 set_target_properties(sensor PROPERTIES LINKER_LANGUAGE CXX)

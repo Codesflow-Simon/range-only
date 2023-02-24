@@ -10,7 +10,6 @@
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/nonlinear/Values.h>
 #include <gtsam/geometry/Point3.h>
-#include <gtsam/nonlinear/Marginals.h>
 #include <gtsam/nonlinear/ISAM2Params.h>
 
 #include <fstream>

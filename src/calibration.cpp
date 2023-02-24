@@ -5,6 +5,7 @@
 #include "cpp/lib/emulator.h"
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
+#include <gtsam/nonlinear/Marginals.h>
 #include <gtsam/nonlinear/ISAM2.h>
 #include <gtsam/sam/RangeFactor.h>
 #include <gtsam/geometry/Pose3.h>
@@ -17,105 +18,86 @@ using namespace gtsam;
 
 using symbol_shorthand::X; // Point3 (x,y,z)
 using Sensor = Emulator;
+using Noise = boost::shared_ptr<gtsam::noiseModel::Isotropic>;
 
-// Estimate prior noise to be about 20cm
-noiseModel::Diagonal::shared_ptr anchor_noise_model = noiseModel::Isotropic::Sigma(3,0.2);
-noiseModel::Diagonal::shared_ptr calibration_tag_noise_model = noiseModel::Isotropic::Sigma(3,0.1);
-noiseModel::Diagonal::shared_ptr distance_noise_model = noiseModel::Isotropic::Sigma(1,0.1);
-
+Noise masterAnchorNoise;
+Noise anchorNoise;
+Noise tagPriorNoise;
+Noise distNoise;
 
 Eigen::Matrix<double, 5, 3> calibrate(JsonSensor* sensor) {
   // Todo, save calibration
   json data = sensor->sample();
-  const int anchors = data["meas"]["d"].size();
+  const int numAnchors = data["meas"]["d"].size();
   const string tagID = data["id"];
   const vector<string> anchorIDs = data["meas"]["a"];
 
+  std::ifstream f("../params.json");
+  parameters = json::parse(f);
 
+  std::ifstream g("../anchors.json");
+  anchors = json::parse(g);
+
+  masterAnchorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,(double)parameters["masterAnchorNoise"]);
+  anchorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,(double)parameters["anchorNoise"]);
+  tagPriorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,(double)parameters["tagPriorNoise"]);
+  distNoise =  gtsam::noiseModel::Isotropic::Sigma(1,(double)parameters["distNoise"]);
 
   Values values;
   NonlinearFactorGraph *graph = new NonlinearFactorGraph();
 
-  map<string, Key> ID_KeyMap;
+  map<string, Key> KeyMap;
 
-  for (int i=0; i<anchors; i++) {
-    ID_KeyMap.insert({anchorIDs[i], (Key)i});
-    values.insert((Key)i, (Point3)anchorMatrix.row(i));
-    graph -> add(PriorFactor<Point3>((Key)i, (Point3)anchorMatrix.row(i), anchor_noise_model));
+  for (json anchor_json : anchors) {
+    Point3 anchor = Point3(anchor_json["x"], anchor_json["y"], anchor_json["z"]);
+
+    KeyMap[anchor_json["ID"]] = (Key)anchor_json["key"];
+    
+    values.insert((Key)anchor_json["key"], anchor);
+    if (anchor != Point3(0,0,0)) {
+      graph -> add(PriorFactor<Point3>((Key)anchor_json["key"], anchor, anchorNoise));
+    } else {
+      graph -> add(PriorFactor<Point3>((Key)anchor_json["key"], anchor, masterAnchorNoise));
+    }
   }
 
-  // Construct range map between anchors
-  // TODO: ensure this works for real sensors
-  map<string, map<string, double>> rangeMap;
   sensor.sendA2a();
-  for (int i=0; i<anchors; i++) {
-    json data = sensor.getJson();
-    string firstKey = data["id"];
-    map<string, double> innerMap;
 
-    for (int j=0; j<anchors-1; j++) {
-      string secondKey = data["meas"]["a"][j];
+  for (int i=0; i<(int)parameters["calibration_steps"]; i++) {
+    json data = sensor.sample();
+    string firstID = data["id"];
+    Key firstKey = keyMap[firstID];
+    
+    for (int j=0; j<(data["meas"]["a"]).size(); j++) {
+      string secondID = data["meas"]["a"][j];
+      Key secondKey = keyMap[secondID];
       double value = data["meas"]["d"][j];
-      innerMap.insert({secondKey, value});
+      
+      graph -> add(RangeFactor<Point3>(fir, anchorKey, distance, distance_noise_model));
     }
-
-    rangeMap.insert({firstKey, innerMap});
-  }
-
-  // Anchor pairwise calibration
-  // TODO: ensure this works for real sensors
-  for (auto const& id_a : anchorIDs) {
-    for (auto const& id_b : anchorIDs) {
-      auto id_pair = set<string>({id_a, id_b});
-      if (id_a != id_b) {       // Pair has not been processed yet
-        Key first_key = ID_KeyMap.at(id_a);
-        Key second_key = ID_KeyMap.at(id_b);
-        double distance = rangeMap.at(id_a).at(id_b);
-        
-        graph -> add(RangeFactor<Point3>(first_key, second_key, distance, distance_noise_model));
-      }
-    }
-  }
-
-  // Postitional calibration
-  // TODO: ensure this works for real sensors
-  Point3 calibration_points[8] = {
-    Point3({0,0,0}),    
-    Point3({1,0,0}),    
-    Point3({1,0,1}),
-    Point3({0,0,1}),
-    Point3({0,1,1}),
-    Point3({0,1,0}),
-    Point3({1,1,0}),
-    Point3({1,1,1})
-  };
-
-  // Outer loop: calibration point on unit cube
-  for (int i=0; i<8; i++) {
-    auto point = calibration_points[i];
-    json data = sensor.getJson((Vector3)point);
-
-    // Inner loop: anchors
-    for (int j=0; j<anchors; j++) {
-      string anchorID = data["meas"]["a"][j];
-      double distance = data["meas"]["d"][j];
-      Key anchorKey = ID_KeyMap.at(anchorID);
-      values.insert(X(8*i+j), point);           // Key for combination of anchor and calibration point
-      graph -> add(PriorFactor<Point3>(X(8*i+j), point, calibration_tag_noise_model));
-      graph -> add(RangeFactor<Point3>(X(8*i+j), anchorKey, distance, distance_noise_model));
-    }    
   }
 
   LevenbergMarquardtOptimizer optimizer(*graph, values);
   values = optimizer.optimize(); 
 
-  Eigen::Matrix<double, 5, 3> outputMatrix;
+  Marginals marginals(*graph, values);
+  Eigen::MatrixXd outputMatrix(numAnchors,6);
 
-  for (int i=0; i<anchors; i++) {
-    outputMatrix.row(i) = values.at<Point3>((Key)i);
-    cout << "anchor " << i << " at " << values.at<Point3>((Key)i);
+  int i=0;
+  for (json anchor_json : anchors) {
+    Point3 point = values.at<Point3>((Key)anchor["Key"]);
+    data(i,0) = point.x();
+    data(i,1) = point.y();
+    data(i,2) = point.z();
+
+    auto cov = marginals.marginalCovariance((Key)anchor["Key"]);
+    data(i,3) = sqrt(cov(0,0));
+    data(i,4) = sqrt(cov(1,1));
+    data(i,5) = sqrt(cov(2,2));
+    i++;
   }
-  cout << endl;
+
+  write_matrix(outputMatrix, "calibration");
 
   return outputMatrix;
 }

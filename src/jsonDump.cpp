@@ -19,6 +19,6 @@ int main () {
 
   // sensor->sampleA2a();
   for(int i=0; i<205; i++) {
-    cout << json(sensor->sample()) << endl;
+    cout << json(dataSource->getJson()) << endl;
   }
 }

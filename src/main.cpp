@@ -85,7 +85,10 @@ int main(int argc, char *argv[]) {
     unsigned long int key = anchor_json["key"];
     Point3 anchor = Point3(anchor_json["x"], anchor_json["y"], anchor_json["z"]);
     values.insert(key, anchor);
-    graph.addPrior(key, anchor, anchorNoise);
+    if (anchor != Point3(0,0,0))
+      graph.addPrior(key, anchor, anchorNoise);
+    else
+      graph.addPrior(key, anchor, masterAnchorNoise);
     j++;
   }
 
@@ -135,7 +138,7 @@ int main(int argc, char *argv[]) {
 
     auto results = isam.update(graph, values);
 
-    // graph.print();
+    graph.print();
     graph.resize(0);
     values.clear();
     estimated_values = isam.calculateEstimate();

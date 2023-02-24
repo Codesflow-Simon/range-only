@@ -10,6 +10,9 @@
 #include "base.h"
 #include "dataEmulator.h"
 
+/**
+ * @brief Derives from DataSource, fetches JSON measurements from a physical device
+*/
 class RealSource : public DataSource {
   private:
     string port;

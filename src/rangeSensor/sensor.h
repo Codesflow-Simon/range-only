@@ -10,6 +10,9 @@ using json = nlohmann::json;
 using namespace std;
 using Key = unsigned long int;
 
+/**
+ * @brief JsonSensor takes input from a DataSource and parses it into c++ structs. JsonSensor also manages the assignment of unique keys to sensors.
+*/
 class JsonSensor {
   private:
     map<string, Key> keyTable; // Could be replaced with a good hash function -- needs to manage X(i)'s

@@ -18,6 +18,9 @@ using namespace Eigen;
 
 using json = nlohmann::json;
 
+/**
+ * @brief Derives from DataSource, uses a simulated environment to create JSON objects
+*/
 class Emulator : public DataSource {
   private:
     json path;

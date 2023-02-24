@@ -16,20 +16,22 @@ cd build
 cmake ..
 make
 `
-An executable `main` should be in the build directory
+The executables `main` and `jsonDump` should be in the build directory
 
 ## Build documentation
 This project uses Doxygen to generate documentation
 `
-doxygen doxygen.conf
+doxygen
 `
 
 # The program
 ## System
 The system contains one sensor denoted "tag", and several other sensors denoted "anchors". All sensors can make distance measurements to other sensors. The anchor sensors are assumed to be stationary while the tag follows a Gaussian random walk. To model this system, a factor graph is created. This factor graph contains two classes of factors. 
 
-The tag motion is modelled with a Gaussian Process, with a RBF kernel. This utilizes betweenFactors to set covariances between timesteps.
+The tag motion is modelled with a Gaussian Process. This utilizes a custom factor to set covariances between timesteps.
 
 The distance measurements between the tag and anchors factors that constrain the motion of the particle.
 
+## Repository
+The source code in the `src` directory contains two main sub-folders
 

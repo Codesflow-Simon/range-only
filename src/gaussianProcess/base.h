@@ -24,7 +24,6 @@ typedef PinholeCamera<Cal3_S2> Camera;
 
 /**
  * @brief Model of anchor or tag object
- * 
  */
 class Anchor {
   public:
@@ -53,7 +52,7 @@ class Anchor {
     }
 
     /**
-     * @brief TEST_CASEs anchor equality
+     * @brief tests anchor equality
      * 
      * @param other 
      * @return true 
@@ -65,7 +64,7 @@ class Anchor {
     }
 
     /**
-     * @brief TEST_CASEs anchor equality
+     * @brief tests anchor equality
      * 
      * @param other 
      * @return true 
@@ -75,6 +74,9 @@ class Anchor {
     return ID == other.ID;
     }
 
+    /**
+     * @brief Implements order for std::maps
+    */
     bool operator <(const Anchor& other) const {
       return stoi(ID) < stoi(other.ID);
     }
@@ -90,7 +92,7 @@ class Anchor {
 };
 
 /**
- * @brief a generic template for both the sensor emulator and physical sensors
+ * @brief a generic template for a sensor that makes measurements using JSON objects
 */
 class DataSource {    
   public:

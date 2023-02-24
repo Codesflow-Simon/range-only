@@ -92,7 +92,8 @@ int main(int argc, char *argv[]) {
   /**
    * Log for data
   */
-  MatrixXd data((int)parameters["logging"], 7); // Data to export for analysis
+  if ((int)parameters["logging"] > 0)
+    MatrixXd data((int)parameters["logging"], 7); // Data to export for analysis
 
   /*-------- Begin SAMPLE LOOP --------*/
   int i=0;

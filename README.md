@@ -1,19 +1,19 @@
 # Gaussian Processes in Factor Graphs
 A library for expressing Gaussian Process priors in GTSAM.
 
-###  Simon Little IDENT:LIT079 , simonclittle@outlook.com
+by Simon Little, CSIRO IDENT:LIT079, email:simonclittle@outlook.com
 
 ## Quickstart
 ### Required software
 [cmake](cmake.org), <br>
 [GTSAM](https://github.com/borglab/gtsam)
-[Nlohmann Json] (https://github.com/nlohmann/json)
+[NLohmann Json] (https://github.com/nlohmann/json)
 
 ## Install and build
 This project uses CMake to build the binaries, with cmake installed use the following to build the project
-`mkdir build
- cd build
- cmake ..
+`mkdir build <br>
+ cd build <br>
+ cmake .. <br>
  make`
 
 ## Structure

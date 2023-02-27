@@ -1,7 +1,5 @@
 docs
 build
-log
 .vscode
 .ipynb_checkpoints
-homework
 params.json

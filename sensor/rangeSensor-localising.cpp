@@ -2,8 +2,8 @@
 #include "graph_adders.h"
 #include "kernels.h"
 
-#include "dataEmulator.h"
-#include "realSource.h"
+#include " data_emulator.h"
+#include " data_real.h"
 #include "random_tools.h"
 
 #include <gtsam/nonlinear/ISAM2.h>

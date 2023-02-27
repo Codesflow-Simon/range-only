@@ -50,7 +50,7 @@ TEST_CASE ("GaussianFactor RBF has mean zero", "[GaussianFactor, factors]") {
   double length = GENERATE(0.1,1,4);
   MatrixXd kernel = rbfKernel(range(0,samples), sigma, length); // Sigma scales output, length slows oscillation
   auto cholesky = inverseCholesky(kernel);
-  auto factor = makeGaussianFactor(cholesky);
+  auto factor = makeGaussianFactor_cholesky(cholesky);
 
   VectorValues values;
   for (int i=0; i<samples; i++) values.insert(Symbol('x', i), Point3::Zero());
@@ -66,7 +66,7 @@ TEST_CASE ("GaussianFactor RBF with conversion has mean zero", "[GaussianFactor,
 
   MatrixXd kernel = rbfKernel(range(0,samples), sigma, length); // Sigma scales output, length slows oscillation
   auto cholesky = inverseCholesky(kernel);
-  auto factor = makeGaussianFactor(cholesky);
+  auto factor = makeGaussianFactor_cholesky(cholesky);
 
   Values zeros; 
   Values values;
@@ -115,7 +115,7 @@ TEST_CASE("GaussianFactor nonlinear RBF fits data", "[GaussianFactor, factors]")
   // Comparing results to data from another Gaussian Process, only working in x
   auto kernel = rbfKernel(range(0,7), 1, 1);
   auto cholesky = inverseCholesky(kernel);
-  auto factor = makeGaussianFactor(cholesky);
+  auto factor = makeGaussianFactor_cholesky(cholesky);
 
   // Using data output [0.5, 0.7, 0.7, 0.8, 0.7]
 
@@ -162,7 +162,7 @@ TEST_CASE("GaussianFactor nonlinear RBF fits data multidimensional", "[GaussianF
   // Comparing results to data from another Gaussian Process, only working in x
   auto kernel = rbfKernel(range(0,7), 2, 0.5);
   auto cholesky = inverseCholesky(kernel);
-  auto factor = makeGaussianFactor(cholesky);
+  auto factor = makeGaussianFactor_cholesky(cholesky);
 
   NonlinearFactorGraph graph;
 
@@ -208,7 +208,7 @@ TEST_CASE("GaussianFactor RBF fits data", "[GaussianFactor, factors]") {
   // Comparing results to data from another Gaussian Process, only working in x
   auto kernel = rbfKernel(range(0,7), 1, 1);
   auto cholesky = inverseCholesky(kernel);
-  auto factor = makeGaussianFactor(cholesky);
+  auto factor = makeGaussianFactor_cholesky(cholesky);
 
   // Using data output [0.5, 0.7, 0.7, 0.8, 0.7]
 
@@ -248,7 +248,7 @@ TEST_CASE("GaussianFactorTestCompare2 RBF", "[factors]") {
   // Comparing results to data from another Gaussian Process, only working in x
   auto kernel = rbfKernel(range(0,7), 2, 0.5);
   auto cholesky = inverseCholesky(kernel);
-  auto factor = makeGaussianFactor(cholesky);
+  auto factor = makeGaussianFactor_cholesky(cholesky);
 
   GaussianFactorGraph graph;
   auto noise =  gtsam::noiseModel::Isotropic::Sigmas(Vector3d(0.5,0.7,0.7));
@@ -288,7 +288,7 @@ TEST_CASE ("GaussianFactorTest Brownian", "[factors]") {
   double length = GENERATE(0.1,0.5,1,3,5);
   MatrixXd kernel = brownianKernel(range(0,samples), length);
   auto cholesky = inverseCholesky(kernel);
-  auto factor = makeGaussianFactor(cholesky);
+  auto factor = makeGaussianFactor_cholesky(cholesky);
 
   VectorValues values;
   for (int i=0; i<samples; i++) values.insert(Symbol('x', i), Point3::Zero());
@@ -301,7 +301,7 @@ TEST_CASE("GaussianFactor Brownian fits data", "[GaussianFactor, factors]") {
   // Comparing results to data from another Gaussian Process, only working in x
   auto kernel = brownianKernel(range(0,7), 0.1);
   auto cholesky = inverseCholesky(kernel);
-  auto factor = makeGaussianFactor(cholesky);
+  auto factor = makeGaussianFactor_cholesky(cholesky);
 
   // Using data output [0.5, 0.7, 0.7, 0.8, 0.7]
 
@@ -340,7 +340,7 @@ TEST_CASE("GaussianFactor Brownian fits data multidimensional", "[GaussianFactor
   // Comparing results to data from another Gaussian Process, only working in x
   auto kernel = brownianKernel(range(0,7), 2);
   auto cholesky = inverseCholesky(kernel);
-  auto factor = makeGaussianFactor(cholesky);
+  auto factor = makeGaussianFactor_cholesky(cholesky);
 
   GaussianFactorGraph graph;
   auto noise =  gtsam::noiseModel::Isotropic::Sigmas(Vector3d(0.5,0.7,0.7));
@@ -376,14 +376,14 @@ TEST_CASE("GaussianFactor Brownian fits data multidimensional", "[GaussianFactor
 }
 
 TEST_CASE("GaussianConditional has zero mean", "[GaussianConditional, factors]") {
-  // Comparing results with makeGaussianFactor
+  // Comparing results with makeGaussianFactor_cholesky
   int datapoints = GENERATE(5,10,30);
   double sigma  = GENERATE(0.5,1.5);
   double length  = GENERATE(0.5,1,3);
 
   auto kernel = rbfKernel(range(0,datapoints), sigma, length);
   auto cholesky = inverseCholesky(kernel);
-  auto dense = makeGaussianFactor(cholesky);
+  auto dense = makeGaussianFactor_cholesky(cholesky);
 
   GaussianFactorGraph graphDense;
   graphDense.add(dense);
@@ -405,11 +405,11 @@ TEST_CASE("GaussianConditional has zero mean", "[GaussianConditional, factors]")
 }
 
 TEST_CASE("GaussianConditional is factor of GaussianFactor", "[GaussianFactor, GaussianConditional, factors]") {
-  // Comparing results with makeGaussianFactor
+  // Comparing results with makeGaussianFactor_cholesky
   int datapoints = 8;
   auto kernel = rbfKernel(range(0,datapoints), 1, 1);
   auto cholesky = inverseCholesky(kernel);
-  auto dense = makeGaussianFactor(cholesky);
+  auto dense = makeGaussianFactor_cholesky(cholesky);
 
   GaussianFactorGraph graphDense;
   graphDense.add(dense);
@@ -451,7 +451,7 @@ TEST_CASE("GaussianConditional is factor of GaussianFactor", "[GaussianFactor, G
 }
 
 TEST_CASE("GaussianConditional takes diagonal band of ", "[GaussianFactor, GaussianConditional, factors]") {
-  // Comparing results with makeGaussianFactor
+  // Comparing results with makeGaussianFactor_cholesky
   int datapoints = 8;
   int factorSize = 5;
   double sigma = 1;
@@ -466,7 +466,7 @@ TEST_CASE("GaussianConditional takes diagonal band of ", "[GaussianFactor, Gauss
   }
 
   auto cholesky = inverseCholesky(kernel);
-  auto dense = makeGaussianFactor(cholesky);
+  auto dense = makeGaussianFactor_cholesky(cholesky);
 
   GaussianFactorGraph graphDense;
   graphDense.add(dense);

@@ -3,7 +3,7 @@
 #include <iostream>
 #include <gtsam/3rdparty/Eigen/Eigen/Dense>
 
-#include "dataEmulator.h"
+#include " data_emulator.h"
  
 #include "random_tools.h"
 

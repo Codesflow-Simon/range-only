@@ -11,8 +11,8 @@ find_package(GTSAMCMakeTools)
 
 find_package(nlohmann_json)
 
-add_subdirectory(src)
-add_subdirectory(examples)
+add_subdirectory(gaussianProcess)
+add_subdirectory(sensor)
 
 set (testing 1)
 if(testing)

@@ -12,9 +12,6 @@
 
 #include "logging.h"
 #include "kernels.h"
- 
-
-#include "base.h"
 
 using namespace std;
 using namespace gtsam;
@@ -23,31 +20,6 @@ typedef NonlinearFactorGraph Graph;
 typedef PinholeCamera<Cal3_S2> Camera;
 
 
-/**********************GRAPH ADDERS**************************/
-
-
-/**
- * @brief Adds range measurements to graph. Will call the sample method of the sensor to get the keys and values of the measurements.
- * @param Graph* graph graph to write too
- * @param JsonSensor* sensor that makes measurements to write too
- * @param SharedNoiseModel distance noise
-*/
-void add_rangeFactors(Graph* graph, DataSource* sensor , SharedNoiseModel distNoise) {
-  // Samples from sensors
-  map<pair<Key,Key>,double> sample = sensor->sample();
-  
-  for (auto meas : sample) {  // ID-measurement pair from sample
-    std::pair<Key,Key> measKeys = meas.first;
-
-    assert(measKeys.first != 0 && measKeys.second != 0);
-
-    auto factor = RangeFactor<Point3>(measKeys.first, measKeys.second, meas.second, distNoise);
-    graph->add(factor);
-
-    write_log("Added DistanceFactor " + keyToString(measKeys.first) + " and " + keyToString(int(measKeys.second)) + " with measurement " + 
-               to_string(meas.second) + "\n");
-  }
-}
 
 /**
  * @brief Adds betweenFactor between most recent tag measurements, creates a Brownian motion model
@@ -60,26 +32,6 @@ void add_naiveBetweenFactors (Graph* graph, Key prevTag, Key tag, SharedNoiseMod
   graph->add(BetweenFactor<Point3>(prevTag, tag, Point3(0,0,0), betweenNoise));
 }
 
-/**
- * @brief Adds projection factors between the tag and camera to the provided graph
- * @param Graph* graph graph to write too]
- * @param list<CameraWrapper*> cameras
- * @param Anchor tag
- * @param Key key of the tag
- * @param SharedNoiseModel noise model
-*/
-void add_cameraFactors(Graph* graph, list<CameraWrapper*> cameras, Anchor tag, Key tagKey, SharedNoiseModel projNoise) {
-  write_log("adding GenericProjectionFactors\n");
-  int i=0;
-  for (auto camera : cameras) {
-    Point2 measurement = camera->sample(tag.location);
-
-    write_log("Camera " + vecToString(camera->getCamera()->pose().translation()));
-    write_log("Measured: (" + to_string(measurement.x()) + ", " + to_string(measurement.y()) + ")\n\n");
-
-    auto factor = GenericProjectionFactor<Pose3, Point3, Cal3_S2>(measurement, projNoise, Symbol('c', i++), tagKey, camera->getParams());
-    graph->add(factor);
-  }
 }
 /**
  * @brief Replaces each entry in a matrix with a 3x3 identity matrix scaled the the original value
@@ -105,7 +57,7 @@ MatrixXd identify3(MatrixXd in) {
  * @param double coefficient for diagonal of noise model
  * @return JacobianFactor, the factor
 */
-JacobianFactor makeGaussianFactor(Eigen::Matrix<double,-1,-1> cholesky, int start=0) {
+JacobianFactor makeGaussianFactor_cholesky(Eigen::Matrix<double,-1,-1> cholesky, int start=0) {
   FastVector<pair<Key, gtsam::Matrix>> terms(cholesky.rows());
   for (int i=0; i<cholesky.rows(); i++) {
     auto keyMatrix = pair<Key, gtsam::Matrix>();
@@ -129,16 +81,20 @@ JacobianFactor makeGaussianFactor(Eigen::Matrix<double,-1,-1> cholesky, int star
  * @brief creates a conditional Gaussian expression for X(start + indicies.length() - 1) which is dependant on all X(start + i) where i < indicies.length() - 1.
  * Which is staying, given a set of timestamps, the last timestamp is dependant on all other timestamps via the covariance function provided.
  * 
-
+ * @paragraph
  * https://en.wikipedia.org/wiki/Multivariate_normal_distribution#Conditional_distributions.
  * Using wikipedia notation, we are computing P(x2|x1) or P(Frontal|Parents) where frontal is a single Point3.
  * 
- * Otherwise written P(Xn | X(n-1) X(n-2) ... X0)
+ * In general passing indicies as {X0, X1, ..., X(n-1), Xn} will give a distribution P(Xn | X(n-1) X(n-2) ... X0)
  * 
  * For example passing indicies = { 10.0 , 11.1 , 12.0 , 13.1 , 14.0 } and start = 21 means:
  * X(25) {time at t=14.0} is related via covariance function to other indicies:
  * P(X(25) | X(24) X(23) X(22) X(21)) ~ N(0, h(indicies))
  * where h is the covariance function (returning the covariance matrix)
+ * 
+ * This can be use to construct factorizations of larger probability density functions:
+ * 
+ * P(X3 X2 X1) = P(X1) P(X2 | X1) P(X3 | X2 X1)
  *
  * @param int start, X-key index to start on
  * @param VectorXd start, X-key index to start on
@@ -203,7 +159,7 @@ void add_gaussianFactors(Graph* graph, int start, VectorXd indicies, double sigm
 
   // MatrixXd covariance = rbfKernel(indicies, sigma, length);
   // MatrixXd cholesky = inverseCholesky(covariance);
-  // auto factor = makeGaussianFactor(cholesky, start);
+  // auto factor = makeGaussianFactor_cholesky(cholesky, start);
 
   Values zeros;
   for (int i=0; i<indicies.size(); i++) {

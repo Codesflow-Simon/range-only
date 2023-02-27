@@ -16,7 +16,6 @@ using namespace std;
  */
 Eigen::MatrixXd inverseCholesky(Eigen::MatrixXd kernel) {
   LLT<MatrixXd> Cholesky(kernel.inverse());
-  cout << "deprecation warning on inverseCholesky" << endl;
   MatrixXd U = Cholesky.matrixU();
   return U;
 }

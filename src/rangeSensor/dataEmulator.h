@@ -64,7 +64,6 @@ class Emulator : public DataSource {
      * @param json* json to add to
     */
     void constructConstants(json* base) {
-      (*base)["id"] = tagID;
       (*base)["acc"] = {0,0,-9.81};
       (*base)["gyro"] = {0.0, 0.0, 0.0};
       (*base)["mag"] = {0, 0, 21};
@@ -79,6 +78,7 @@ class Emulator : public DataSource {
     void getTagData(json* base, Vector3d tag) {
 
       constructConstants(base);
+      (*base)["id"] = tagID;
 
       json meas = json();
       map<string,double> measurement = sampleAsMap(tag);
@@ -102,7 +102,8 @@ class Emulator : public DataSource {
     void getA2aData(json* base) {
       Anchor subject = anchors.at(a2aSent);
 
-      constructConstants(base);           
+      constructConstants(base);     
+      (*base)["id"] = subject.ID;      
 
       json meas = json();
       auto measurement = sampleAsMap(subject.location, subject.ID);

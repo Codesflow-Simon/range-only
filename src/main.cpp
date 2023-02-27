@@ -124,13 +124,7 @@ int main(int argc, char *argv[]) {
       int startIndex;
 
       if (parameters["method"] == "optimised") {
-        if (i<(int)parameters["gaussianMaxWidth"]) {
-          indicies = range(0,i+1);
-          startIndex = 0;
-        } else  {
-          indicies = range(i-(int)parameters["gaussianMaxWidth"], i+1);
-          startIndex = i-(int)parameters["gaussianMaxWidth"];
-        }
+          indicies = range(max(0,i-(int)parameters["gaussianMaxWidth"]), i+1);
       } else {
         indicies = range(0,i+1);
         startIndex = 0;

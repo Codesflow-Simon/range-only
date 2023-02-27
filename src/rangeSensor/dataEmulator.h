@@ -18,6 +18,9 @@ using namespace Eigen;
 
 using json = nlohmann::json;
 
+/**
+ * @brief Derives from DataSource, uses a simulated environment to create JSON objects
+*/
 class Emulator : public DataSource {
   private:
     json path;
@@ -61,7 +64,6 @@ class Emulator : public DataSource {
      * @param json* json to add to
     */
     void constructConstants(json* base) {
-      (*base)["id"] = tagID;
       (*base)["acc"] = {0,0,-9.81};
       (*base)["gyro"] = {0.0, 0.0, 0.0};
       (*base)["mag"] = {0, 0, 21};
@@ -76,6 +78,7 @@ class Emulator : public DataSource {
     void getTagData(json* base, Vector3d tag) {
 
       constructConstants(base);
+      (*base)["id"] = tagID;
 
       json meas = json();
       map<string,double> measurement = sampleAsMap(tag);
@@ -99,7 +102,8 @@ class Emulator : public DataSource {
     void getA2aData(json* base) {
       Anchor subject = anchors.at(a2aSent);
 
-      constructConstants(base);           
+      constructConstants(base);     
+      (*base)["id"] = subject.ID;      
 
       json meas = json();
       auto measurement = sampleAsMap(subject.location, subject.ID);
@@ -122,8 +126,9 @@ class Emulator : public DataSource {
      * @brief constructor with path
      * @param string path of physical sensors
     */
-    Emulator(string prefix = "../data/") {
-      std::ifstream f(prefix+"path.json");
+    Emulator(string prefix = "../") {
+      initKeyTable();
+      std::ifstream f(prefix+"./data/path.json");
       path = json::parse(f);
       std::ifstream g(prefix+"anchors.json");
       anchorsJson = json::parse(g);

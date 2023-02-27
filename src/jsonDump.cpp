@@ -1,7 +1,6 @@
 
 #include "dataEmulator.h"
 #include "realSource.h"
-#include "sensor.h"
 #include <fstream>
 #include <nlohmann/json.hpp>
 
@@ -14,11 +13,10 @@ int main () {
   std::ifstream f("../params.json");
   json parameters = json::parse(f);
 
-  RealSource* dataSource = new RealSource(parameters["source"]);
-  JsonSensor* sensor = new JsonSensor(dataSource);
+  RealSource* source = new RealSource(parameters["source"]);
 
   // sensor->sampleA2a();
   for(int i=0; i<205; i++) {
-    cout << json(dataSource->getJson()) << endl;
+    cout << json(source->getJson()) << endl;
   }
 }

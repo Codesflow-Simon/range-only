@@ -12,7 +12,7 @@
 
 #include "logging.h"
 #include "kernels.h"
-#include "sensor.h"
+ 
 
 #include "base.h"
 
@@ -31,17 +31,10 @@ typedef PinholeCamera<Cal3_S2> Camera;
  * @param Graph* graph graph to write too
  * @param JsonSensor* sensor that makes measurements to write too
  * @param SharedNoiseModel distance noise
- * @param bool include anchor to anchor (a2a) measurements, this improves accuracy of the location of the anchors, but only need to be done once
 */
-void add_rangeFactors(Graph* graph, JsonSensor* sensor , SharedNoiseModel distNoise, bool include_a2a=false) {
+void add_rangeFactors(Graph* graph, DataSource* sensor , SharedNoiseModel distNoise) {
   // Samples from sensors
   map<pair<Key,Key>,double> sample = sensor->sample();
-
-  // A2a measurements
-  if (include_a2a) {
-    map<pair<Key,Key>,double> A2asample = sensor->sampleA2a();
-    sample.insert(A2asample.begin(), A2asample.end()); 
-  }
   
   for (auto meas : sample) {  // ID-measurement pair from sample
     std::pair<Key,Key> measKeys = meas.first;

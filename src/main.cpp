@@ -10,7 +10,6 @@
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/nonlinear/Values.h>
 #include <gtsam/geometry/Point3.h>
-#include <gtsam/nonlinear/Marginals.h>
 #include <gtsam/nonlinear/ISAM2Params.h>
 
 #include <fstream>
@@ -26,19 +25,18 @@ using Graph = NonlinearFactorGraph;
 using Camera = PinholeCamera<Cal3_S2>;
 using Time = chrono::time_point<chrono::high_resolution_clock>;
 using json = nlohmann::json;
+using Noise = boost::shared_ptr<gtsam::noiseModel::Isotropic>;
 
 // Model parameters
 json parameters;
 json anchors;
 json path;
 
-// Should move the entries to a json file
-auto anchorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.1);
-auto tagPriorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,0.1);
-auto distNoise =  gtsam::noiseModel::Isotropic::Sigma(1,0.01);
-
-auto betweenNoise = gtsam::noiseModel::Isotropic::Sigma(3,0.1);
-auto true_noise = gtsam::noiseModel::Isotropic::Sigma(3,0.1);
+Noise masterAnchorNoise;
+Noise anchorNoise;
+Noise tagPriorNoise;
+Noise distNoise;
+Noise betweenNoise;
 
 int main(int argc, char *argv[]) {
   init_log();
@@ -53,10 +51,18 @@ int main(int argc, char *argv[]) {
   anchors = json::parse(g);
 
   /**
-   * Setup infomation pipeline
+   * Noise models
   */
-  RealSource* dataSource = new RealSource(parameters["source"]);
-  JsonSensor* sensor = new JsonSensor(dataSource);
+  masterAnchorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,(double)parameters["masterAnchorNoise"]);
+  anchorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,(double)parameters["anchorNoise"]);
+  tagPriorNoise =  gtsam::noiseModel::Isotropic::Sigma(3,(double)parameters["tagPriorNoise"]);
+  distNoise =  gtsam::noiseModel::Isotropic::Sigma(1,(double)parameters["distNoise"]);
+  betweenNoise =  gtsam::noiseModel::Isotropic::Sigma(3,(double)parameters["betweenNoise"]);
+
+  /**
+   * Setup data pipeline
+  */
+  DataSource* source = new Emulator();
 
   /**
    * Setup numerics
@@ -95,19 +101,22 @@ int main(int argc, char *argv[]) {
   /**
    * Log for data
   */
-  MatrixXd data((int)parameters["logging"], 7); // Data to export for analysis
+  MatrixXd data;
+  if ((int)parameters["logging"] > 0) {
+    data = MatrixXd((int)parameters["logging"], 7); // Data to export for analysis
+  }
 
   /*-------- Begin SAMPLE LOOP --------*/
   int i=0;
   while (true) {
-    sensor->updateTagKey(Symbol('x', i)); // Keep the table pointing to the the current tag
-    dataSource->updateTimeIndex(i); // For emulator only, loops synced
+    source->updateTagKey(Symbol('x', i)); // Keep the table pointing to the the current tag
+    source->updateTimeIndex(i); // For emulator only, loops synced
 
     write_log("loop " + to_string(i) + "\n");
     start = chrono::high_resolution_clock::now();
 
     write_log("adding factors\n");
-    add_rangeFactors(&graph, sensor, distNoise); // Actual measurements
+    add_rangeFactors(&graph, source, distNoise); // Actual measurements
 
     // "optimised" gives n-Markov approximation of GP, "naive" gives the full GP, "markov" gives markov (Brownian) model 
     if (parameters["method"] == "optimised" || parameters["method"] == "naive") {
@@ -115,13 +124,7 @@ int main(int argc, char *argv[]) {
       int startIndex;
 
       if (parameters["method"] == "optimised") {
-        if (i<(int)parameters["gaussianMaxWidth"]) {
-          indicies = range(0,i+1);
-          startIndex = 0;
-        } else  {
-          indicies = range(i-(int)parameters["gaussianMaxWidth"], i+1);
-          startIndex = i-(int)parameters["gaussianMaxWidth"];
-        }
+          indicies = range(max(0,i-(int)parameters["gaussianMaxWidth"]), i+1);
       } else {
         indicies = range(0,i+1);
         startIndex = 0;
@@ -133,9 +136,9 @@ int main(int argc, char *argv[]) {
     }
     write_log("Optimising\n");
 
+    graph.print();
     auto results = isam.update(graph, values);
 
-    graph.print();
     graph.resize(0);
     values.clear();
     estimated_values = isam.calculateEstimate();
@@ -167,6 +170,6 @@ int main(int argc, char *argv[]) {
   write_matrix(data, "data"); // Writes recorded data to file
 
   close_log();
-  delete sensor;
+  delete source;
 }
 

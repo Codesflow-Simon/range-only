@@ -1,3 +1,3 @@
-
-add_subdirectory(sensor)
-add_subdirectory(lib)
+add_subdirectory(utils)
+add_subdirectory(gaussianProcess)
+add_subdirectory(rangeSensor)

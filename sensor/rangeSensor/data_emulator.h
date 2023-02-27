@@ -128,7 +128,7 @@ class Emulator : public DataSource {
     */
     Emulator(string prefix = "../") {
       initKeyTable();
-      std::ifstream f(prefix+"./data/path.json");
+      std::ifstream f(prefix+"path.json");
       path = json::parse(f);
       std::ifstream g(prefix+"anchors.json");
       anchorsJson = json::parse(g);

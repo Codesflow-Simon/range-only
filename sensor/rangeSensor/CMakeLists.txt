@@ -1,6 +1,6 @@
 
 add_library(
-    range " data_emulator.h" " data_real.h" "base.h"
+    range "data_emulator.h" "data_real.h" "base.h" "measurement_adders.h"
 )
 
 set_target_properties(range PROPERTIES LINKER_LANGUAGE CXX)

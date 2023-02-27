@@ -8,7 +8,7 @@
 #include <nlohmann/json.hpp>
 
 #include "base.h"
-#include " data_emulator.h"
+#include "data_emulator.h"
 
 /**
  * @brief Derives from DataSource, fetches JSON measurements from a physical device

@@ -20,24 +20,3 @@ void add_rangeFactors(Graph* graph, DataSource* sensor , SharedNoiseModel distNo
                to_string(meas.second) + "\n");
   }
 }
-
-/**
- * @brief Adds projection factors between the tag and camera to the provided graph
- * @param Graph* graph graph to write too]
- * @param list<CameraWrapper*> cameras
- * @param Anchor tag
- * @param Key key of the tag
- * @param SharedNoiseModel noise model
-*/
-void add_cameraFactors(Graph* graph, list<CameraWrapper*> cameras, Anchor tag, Key tagKey, SharedNoiseModel projNoise) {
-  write_log("adding GenericProjectionFactors\n");
-  int i=0;
-  for (auto camera : cameras) {
-    Point2 measurement = camera->sample(tag.location);
-
-    write_log("Camera " + vecToString(camera->getCamera()->pose().translation()));
-    write_log("Measured: (" + to_string(measurement.x()) + ", " + to_string(measurement.y()) + ")\n\n");
-
-    auto factor = GenericProjectionFactor<Pose3, Point3, Cal3_S2>(measurement, projNoise, Symbol('c', i++), tagKey, camera->getParams());
-    graph->add(factor);
-  }

@@ -1,6 +1,6 @@
 
-#include " data_emulator.h"
-#include " data_real.h"
+#include "data_emulator.h"
+#include "data_real.h"
 #include <fstream>
 #include <nlohmann/json.hpp>
 

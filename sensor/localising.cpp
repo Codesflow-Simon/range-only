@@ -1,10 +1,13 @@
-#include "logging.h"
-#include "graph_adders.h"
+#include "gaussian.h"
 #include "kernels.h"
 
-#include " data_emulator.h"
-#include " data_real.h"
+#include "data_emulator.h"
+#include "data_real.h"
+#include "measurement_adders.h"
+
 #include "random_tools.h"
+#include "logging.h"
+
 
 #include <gtsam/nonlinear/ISAM2.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
@@ -123,10 +126,11 @@ int main(int argc, char *argv[]) {
       int startIndex;
 
       if (parameters["method"] == "optimised") {
-          indicies = range(max(0,i-(int)parameters["gaussianMaxWidth"]), i+1);
+        startIndex = max(0,i-(int)parameters["gaussianMaxWidth"]);
+        indicies = range(startIndex, i+1);
       } else {
-        indicies = range(0,i+1);
         startIndex = 0;
+        indicies = range(0,i+1);
       }
       
       add_gaussianFactors(&graph, startIndex, indicies, parameters["kernelSigma"], parameters["kernelLength"]);

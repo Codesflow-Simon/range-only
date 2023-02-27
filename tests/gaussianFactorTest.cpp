@@ -13,7 +13,7 @@
 #include <gtsam/nonlinear/Marginals.h>
 
 #include "random_tools.h"
-#include "graph_adders.h"
+#include "gaussian.h"
 #include "kernels.h"
 
 double small = 1E-8;

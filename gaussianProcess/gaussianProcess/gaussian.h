@@ -19,8 +19,6 @@ using namespace gtsam;
 typedef NonlinearFactorGraph Graph;
 typedef PinholeCamera<Cal3_S2> Camera;
 
-
-
 /**
  * @brief Adds betweenFactor between most recent tag measurements, creates a Brownian motion model
  * @param Graph* graph graph to write too
@@ -32,7 +30,6 @@ void add_naiveBetweenFactors (Graph* graph, Key prevTag, Key tag, SharedNoiseMod
   graph->add(BetweenFactor<Point3>(prevTag, tag, Point3(0,0,0), betweenNoise));
 }
 
-}
 /**
  * @brief Replaces each entry in a matrix with a 3x3 identity matrix scaled the the original value
  * @param Matrix
@@ -59,14 +56,16 @@ MatrixXd identify3(MatrixXd in) {
 */
 JacobianFactor makeGaussianFactor_cholesky(Eigen::Matrix<double,-1,-1> cholesky, int start=0) {
   FastVector<pair<Key, gtsam::Matrix>> terms(cholesky.rows());
+
   for (int i=0; i<cholesky.rows(); i++) {
+
     auto keyMatrix = pair<Key, gtsam::Matrix>();
     keyMatrix.first = Symbol('x', i+start);
     MatrixXd mat(3*(cholesky.rows()),3);
+
     for (int j=0; j<cholesky.rows(); j++) {
       double value = cholesky(j,i);
       Matrix33 block = value * Matrix33::Identity();
-
       for (int k=0;k<3;k++) mat.row(3*j+k) = block.row(k);
     }
     keyMatrix.second = mat; 
@@ -104,6 +103,7 @@ JacobianFactor makeGaussianFactor_cholesky(Eigen::Matrix<double,-1,-1> cholesky,
 */
 GaussianConditional makeGaussianConditional(int start, VectorXd indicies, double kernel_sigma, double kernel_length, string cov="rbf") {
   int n = indicies.size()-1;
+  assert(n>=0);
   FastVector<pair<Key, gtsam::Matrix>> terms(indicies.size());
 
   MatrixXd covariance;
@@ -148,7 +148,7 @@ GaussianConditional makeGaussianConditional(int start, VectorXd indicies, double
 }
 
 /**
- * @brief A non-linear wrapper for makeGaussianConditional
+ * @brief A non-linear wrapper for makeGaussianConditional, adds directly to a factor graph.
  * @param Graph* graph to write 
  * @param int start, passed to makeGaussianConditional
  * @param double covariance sigma

@@ -9,9 +9,10 @@
     "logging": 100,
     "source": "/dev/ttyUSB1",
     "baud": 1000000,
+
     "masterAnchorNoise": 0.001,
     "anchorNoise": 0.1,
-    "tagPriorNoise": 0.1,
+    "tagPriorNoise": 1,
     "distNoise": 0.1,
     "betweenNoise": 0.5,
     "calibration_steps": 1000

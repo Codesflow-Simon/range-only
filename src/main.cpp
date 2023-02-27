@@ -30,7 +30,6 @@ using Noise = boost::shared_ptr<gtsam::noiseModel::Isotropic>;
 // Model parameters
 json parameters;
 json anchors;
-json path;
 
 Noise masterAnchorNoise;
 Noise anchorNoise;

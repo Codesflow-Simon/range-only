@@ -125,22 +125,23 @@ int main(int argc, char *argv[]) {
     add_rangeFactors(&graph, source, distNoise); // Actual measurements
 
     // "optimised" gives n-Markov approximation of GP, "naive" gives the full GP, "markov" gives markov (Brownian) model 
-    if (parameters["method"] == "optimised" || parameters["method"] == "naive") {
-      VectorXd indicies; 
-      int startIndex;
+    VectorXd indicies; 
+    int startIndex;
+    
+    if (parameters["method"] == "optimised") {
+      startIndex = max(0,i-(int)parameters["gaussianMaxWidth"]);
+      indicies = range(startIndex, i+1);
+      graph.add(makeGaussianConditionalNonlinear(startIndex, indicies, parameters["kernelSigma"], parameters["kernelLength"]));
 
-      if (parameters["method"] == "optimised") {
-        startIndex = max(0,i-(int)parameters["gaussianMaxWidth"]);
-        indicies = range(startIndex, i+1);
-      } else {
-        startIndex = 0;
-        indicies = range(0,i+1);
-      }
-      
-      add_gaussianFactors(&graph, startIndex, indicies, parameters["kernelSigma"], parameters["kernelLength"]);
-    } else if(parameters["method"] == "markov"){
-      if (i>1) add_naiveBetweenFactors(&graph, Symbol('x',i-1), Symbol('x',i), betweenNoise);  
-    }
+    } else if (parameters["method"] == "naive") {
+      startIndex = 0;
+      indicies = range(0,i+1);
+      graph.add(makeGaussianConditionalNonlinear(startIndex, indicies, parameters["kernelSigma"], parameters["kernelLength"]));
+
+    } else if(parameters["method"] == "markov" && i>1 ) {
+      graph.add(BetweenFactor<Point3>(Symbol('x',i-1), Symbol('x',i), Point3(0,0,0), betweenNoise)); 
+    } 
+
     write_log("Optimising\n");
 
     // graph.print();

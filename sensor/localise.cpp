@@ -28,7 +28,7 @@ using Graph = NonlinearFactorGraph;
 using Camera = PinholeCamera<Cal3_S2>;
 using Time = chrono::time_point<chrono::high_resolution_clock>;
 using json = nlohmann::json;
-using Noise = boost::shared_ptr<gtsam::noiseModel::Isotropic>;
+using Noise = std::shared_ptr<gtsam::noiseModel::Isotropic>;
 
 // Model parameters
 json parameters;
@@ -64,7 +64,11 @@ int main(int argc, char *argv[]) {
   /**
    * Setup data pipeline
   */
-  DataSource* source = new Emulator();
+ DataSource* source;
+  if (parameters["simulated"])
+    source = new Emulator();
+  else
+    source = new RealSource(parameters["source"]);
 
   /**
    * Setup numerics
@@ -78,12 +82,7 @@ int main(int argc, char *argv[]) {
    * Prior factors and initial solution
   */
   graph.addPrior(Symbol('x', 0), (Point3) (Point3(0,0,0)), tagPriorNoise);
-  
-  // Need to happen Dynamically
-  for (int i=0; i<1000; i++) {
-    Point3 point = standard_normal_vector3()*parameters["initialization_sigma"];
-    values.insert(Symbol('x',i), point);
-  }
+
 
   Time start;
   Time stop;
@@ -117,6 +116,9 @@ int main(int argc, char *argv[]) {
   while (true) {
     source->updateTagKey(Symbol('x', i)); // Keep the table pointing to the the current tag
     source->updateTimeIndex(i); // For emulator only, loops synced
+
+    Point3 point = standard_normal_vector3()*parameters["initialization_sigma"];
+    values.insert(Symbol('x',i), point);
 
     write_log("loop " + to_string(i) + "\n");
     start = chrono::high_resolution_clock::now();

@@ -92,11 +92,15 @@ int main(int argc, char *argv[]) {
   for (json anchor_json : anchors) {
     unsigned long int key = anchor_json["key"];
     Point3 anchor = Point3(anchor_json["x"], anchor_json["y"], anchor_json["z"]);
-    values.insert(key, anchor);
-    if (anchor != Point3(0,0,0))
+    if (anchor != Point3(0,0,0)) { 
+      values.insert(key, anchor); 
       graph.addPrior(key, anchor, anchorNoise);
-    else
+    }
+    else {
+      anchor += standard_normal_vector3() * 0.0001;
+      values.insert(key, anchor);
       graph.addPrior(key, anchor, masterAnchorNoise);
+    }
     j++;
   }
 
@@ -139,7 +143,7 @@ int main(int argc, char *argv[]) {
     }
     write_log("Optimising\n");
 
-    graph.print();
+    // graph.print();
     auto results = isam.update(graph, values);
 
     graph.resize(0);

@@ -24,7 +24,8 @@ using json = nlohmann::json;
 class Emulator : public DataSource {
   private:
     json path;
-    json anchorsJson;
+    json anchorsJson; 
+    json parameters; 
 
     vector<Anchor> anchors;
     vector<Anchor>::iterator it = anchors.begin();
@@ -132,7 +133,9 @@ class Emulator : public DataSource {
       path = json::parse(f);
       std::ifstream g(prefix+"anchors.json");
       anchorsJson = json::parse(g);
-    
+      std::ifstream h(prefix+"params.json");
+      parameters = json::parse(h);
+      error = parameters["distNoise"];
 
       for (json anchor : anchorsJson) {
         string ID = anchor["ID"];

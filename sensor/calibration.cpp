@@ -20,7 +20,7 @@ using namespace std;
 using namespace gtsam;
 
 using symbol_shorthand::X; 
-using Noise = boost::shared_ptr<gtsam::noiseModel::Isotropic>;
+using Noise = std::shared_ptr<gtsam::noiseModel::Isotropic>;
 
 Noise masterAnchorNoise;
 Noise anchorNoise;
@@ -47,28 +47,22 @@ void calibrate(DataSource* source) {
   distNoise =  gtsam::noiseModel::Isotropic::Sigma(1,(double)parameters["distNoise"]);
   betweenNoise =  gtsam::noiseModel::Isotropic::Sigma(3,(double)parameters["betweenNoise"]);
 
-  Values values;
-  NonlinearFactorGraph *graph = new NonlinearFactorGraph();
+  Values values, estimate;
+  auto graph = NonlinearFactorGraph();
 
-  graph -> add(PriorFactor<Point3>(X(0), Point3(0,0,0), tagPriorNoise));
-
-  map<string, Key> keyMap;
+  graph.add(PriorFactor<Point3>(X(0), Point3(0,0,0), tagPriorNoise));
 
   for (json anchor_json : anchors) {
     Point3 anchor = Point3(anchor_json["x"], anchor_json["y"], anchor_json["z"]);
-
-    keyMap[anchor_json["ID"]] = (Key)anchor_json["key"];
-    string IDDebug = anchor_json["ID"];
-    int keyDebug = anchor_json["key"];
     
     if (anchor != Point3(0,0,0)) {
-      anchor += standard_normal_vector3()*parameters["anchorNoise"];
+      // anchor += standard_normal_vector3()*parameters["anchorNoise"];
       values.insert((Key)anchor_json["key"], anchor);
-      graph -> add(PriorFactor<Point3>((Key)anchor_json["key"], anchor, anchorNoise));
+      graph.add(PriorFactor<Point3>((Key)anchor_json["key"], anchor, anchorNoise));
     } else {
-      anchor += standard_normal_vector3() * (double)parameters["masterAnchorNoise"];
+      anchor += standard_normal_vector3() * (double)parameters["masterAnchorNoise"]; // Don't want to initialise at zero
       values.insert((Key)anchor_json["key"], anchor);
-      graph -> add(PriorFactor<Point3>((Key)anchor_json["key"], Point3(0,0,0), masterAnchorNoise));
+      graph.add(PriorFactor<Point3>((Key)anchor_json["key"], Point3(0,0,0), masterAnchorNoise));
     }
   }
 
@@ -81,21 +75,22 @@ void calibrate(DataSource* source) {
     values.insert(X(i), Point3(0,0,0));
     // if (i>0) add_naiveBetweenFactors(graph, Symbol('x',i-1), Symbol('x',i), betweenNoise);  
     int before = max(0, i-10);
-    add_gaussianFactors(graph, before, range(before,i+1), 1, 2);
+    graph.add(makeGaussianConditionalNonlinear(before, range(before,i+1), parameters["kernelSigma"], parameters["kernelLength"]));
 
     auto data = source->sample();
     for (auto entry : data ) {
       pair<Key,Key> keys = entry.first;
       double dist = entry.second;
       
-      graph -> add(RangeFactor<Point3>(keys.first, keys.second, dist, distNoise));
+      graph.add(RangeFactor<Point3>(keys.first, keys.second, dist, distNoise));
     }
   }
 
   // graph->print();
-  LevenbergMarquardtOptimizer optimizer(*graph, values);
-  values = optimizer.optimize();
-  Marginals marginals(*graph, values);
+  // Inspect ordering
+  LevenbergMarquardtOptimizer optimizer(graph, values);
+  estimate = optimizer.optimize();
+  Marginals marginals(graph, estimate);
   Eigen::MatrixXd outputMatrix(numAnchors,6);
 
   int i=0;

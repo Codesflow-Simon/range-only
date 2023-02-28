@@ -5,6 +5,8 @@
     "gaussianMaxWidth": 20,
     "method": "optimised",
     "initialization_sigma": 0.0,
+
+    "simulated": false,
     
     "logging": 100,
     "source": "/dev/ttyUSB1",

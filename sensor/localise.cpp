@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
    * Setup numerics
   */
   ISAM2Params params(ISAM2GaussNewtonParams(), 0.50, 50, true);
-  ISAM2 isam(params);
+  ISAM2 isam(params); // Try incremental fixed lag smoother
   Graph graph; // Something is wrong with graph
   Values values, estimated_values;
 
